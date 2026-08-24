@@ -6,134 +6,129 @@
     xmlns:local="using:IDCLogChecker.Avalonia"
     xmlns:presentation="using:IDCLogChecker.Core.Presentation"
     Title="IDC 日志完整性检查工具"
-    Width="1180"
-    Height="800"
-    MinWidth="980"
-    MinHeight="680"
-    WindowStartupLocation="CenterScreen">
+    Width="1280" Height="840" MinWidth="1080" MinHeight="720"
+    WindowStartupLocation="CenterScreen"
+    DragDrop.AllowDrop="True"
+    DragDrop.DragEnter="OnDragEnter" DragDrop.DragLeave="OnDragLeave"
+    DragDrop.DragOver="OnDragOver" DragDrop.Drop="OnDrop">
   <Grid RowDefinitions="Auto,*">
-    <Border Grid.Row="0" Background="#14213D" Padding="28,22">
+    <Border Grid.Row="0" Background="#14213D" Padding="28,20">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
         <StackPanel Spacing="5">
           <TextBlock FontSize="25" FontWeight="Bold" Foreground="White" Text="IDC 日志完整性检查工具" />
-          <TextBlock Foreground="#C6D5E4" Text="选择一次巡检结果目录，核对目录、TXT 名称和文件内容状态" />
+          <TextBlock Foreground="#C6D5E4" Text="可选择或拖入多个巡检结果目录，逐个核对并分别展示结果" />
         </StackPanel>
         <Border Grid.Column="1" Background="#23385D" CornerRadius="8" Padding="18,10">
-          <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-            <StackPanel>
-              <TextBlock FontSize="21" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Text="62" />
-              <TextBlock FontSize="11" Foreground="#C6D5E4" Text="设备目录" />
-            </StackPanel>
-            <Border Width="1" Height="36" Background="#58708E" />
-            <StackPanel>
-              <TextBlock FontSize="21" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" Text="3,660" />
-              <TextBlock FontSize="11" Foreground="#C6D5E4" Text="TXT 基准" />
-            </StackPanel>
-          </StackPanel>
+          <TextBlock Foreground="White" FontWeight="SemiBold" Text="基准：62 个设备目录 · 3,660 个 TXT" />
         </Border>
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="14">
-      <Border Grid.Row="0" Classes="card">
-        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-          <TextBox
-              PlaceholderText="请选择包含 62 个设备目录的文件夹"
-              Text="{Binding SelectedPath, Mode=TwoWay}"
-              VerticalContentAlignment="Center" />
-          <Button Grid.Column="1" Classes="secondary" Click="OnChooseFolderClick" Content="选择文件夹" />
+    <Grid Grid.Row="1" Margin="22" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="12">
+      <Border x:Name="DropZone" Grid.Row="0" Classes="card" BorderThickness="2"
+              >
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+          <StackPanel Spacing="3" VerticalAlignment="Center">
+            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="#14213D" Text="{Binding SelectionSummaryText}" />
+            <TextBlock FontSize="12" Foreground="#60758A" Text="{Binding InputNoticeText}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="secondary" Click="OnChooseFolderClick" Content="选择多个文件夹…" />
           <Button Grid.Column="2" Classes="primary" Click="OnStartScanClick" Content="开始检查" IsEnabled="{Binding CanStart}" />
         </Grid>
       </Border>
 
-      <Grid Grid.Row="1" ColumnDefinitions="2*,*,*,*,*" ColumnSpacing="12">
-        <Border Classes="card" BorderBrush="{Binding StatusColor}" BorderThickness="4,1,1,1">
-          <StackPanel Spacing="6">
-            <TextBlock FontSize="12" Foreground="#60758A" Text="总体结论" />
-            <TextBlock FontSize="18" FontWeight="SemiBold" Foreground="{Binding StatusColor}" Text="{Binding Conclusion}" TextWrapping="Wrap" />
-            <TextBlock FontSize="11" Foreground="#60758A" Text="{Binding StatusText}" TextWrapping="Wrap" />
-          </StackPanel>
-        </Border>
-        <Border Grid.Column="1" Classes="card">
-          <StackPanel Spacing="5">
-            <TextBlock Foreground="#60758A" Text="设备目录" />
-            <TextBlock FontSize="22" FontWeight="Bold" Foreground="#14213D" Text="{Binding DirectoryCountText}" />
-          </StackPanel>
-        </Border>
-        <Border Grid.Column="2" Classes="card">
-          <StackPanel Spacing="5">
-            <TextBlock Foreground="#60758A" Text="TXT 文件" />
-            <TextBlock FontSize="22" FontWeight="Bold" Foreground="#14213D" Text="{Binding TxtCountText}" />
-          </StackPanel>
-        </Border>
-        <Border Grid.Column="3" Classes="card">
-          <StackPanel Spacing="5">
-            <TextBlock Foreground="#60758A" Text="错误" />
-            <TextBlock FontSize="22" FontWeight="Bold" Foreground="#C0392B" Text="{Binding ErrorCountText}" />
-          </StackPanel>
-        </Border>
-        <Border Grid.Column="4" Classes="card">
-          <StackPanel Spacing="5">
-            <TextBlock Foreground="#60758A" Text="提示" />
-            <TextBlock FontSize="22" FontWeight="Bold" Foreground="#D78C12" Text="{Binding WarningCountText}" />
-          </StackPanel>
-        </Border>
+      <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+        <Border Classes="card"><StackPanel Spacing="4"><TextBlock Foreground="#60758A" Text="本批次文件夹" /><TextBlock FontSize="22" FontWeight="Bold" Foreground="#14213D" Text="{Binding TotalFolderCountText}" /></StackPanel></Border>
+        <Border Grid.Column="1" Classes="card"><StackPanel Spacing="4"><TextBlock Foreground="#60758A" Text="完全通过" /><TextBlock FontSize="22" FontWeight="Bold" Foreground="#1F8A70" Text="{Binding CleanFolderCountText}" /></StackPanel></Border>
+        <Border Grid.Column="2" Classes="card"><StackPanel Spacing="4"><TextBlock Foreground="#60758A" Text="有提示" /><TextBlock FontSize="22" FontWeight="Bold" Foreground="#D78C12" Text="{Binding WarningFolderCountText}" /></StackPanel></Border>
+        <Border Grid.Column="3" Classes="card"><StackPanel Spacing="4"><TextBlock Foreground="#60758A" Text="不通过" /><TextBlock FontSize="22" FontWeight="Bold" Foreground="#C0392B" Text="{Binding FailedFolderCountText}" /></StackPanel></Border>
       </Grid>
 
-      <ProgressBar Grid.Row="2" Height="6" Maximum="100" Value="{Binding ProgressPercent}" />
+      <Grid Grid.Row="2" ColumnDefinitions="*,220" ColumnSpacing="14">
+        <TextBlock Foreground="#52697D" Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" />
+        <ProgressBar Grid.Column="1" Height="7" Maximum="100" Value="{Binding ProgressPercent}" />
+      </Grid>
 
-      <Border Grid.Row="3" Classes="card" Padding="0">
-        <Grid RowDefinitions="Auto,*,Auto" MinHeight="300">
-          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="18,14,18,10">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-              <TextBlock Margin="0,7,10,0" FontSize="16" FontWeight="SemiBold" Foreground="#14213D" Text="检查明细" />
-              <Button Classes="secondary" Click="OnShowAllClick" Content="查看全部" />
-              <Button Classes="secondary" Click="OnShowErrorsClick" Content="只看错误" />
-              <Button Classes="secondary" Click="OnShowWarningsClick" Content="只看提示" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-              <Button Classes="secondary" Click="OnCopyClick" Content="复制选中内容" />
-              <Button Classes="secondary" Click="OnOpenLocationClick" Content="打开文件位置" />
-              <Button Classes="primary" Click="OnExportClick" Content="导出检查报告" IsEnabled="{Binding CanExport}" />
-            </StackPanel>
-          </Grid>
-
-          <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="18,0">
-            <Border Background="#EAF0F5" Padding="12,8">
-              <Grid ColumnDefinitions="68,160,210,180,*" ColumnSpacing="10">
-                <TextBlock FontWeight="SemiBold" Text="级别" />
-                <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="类别" />
-                <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="设备目录" />
-                <TextBlock Grid.Column="3" FontWeight="SemiBold" Text="文件" />
-                <TextBlock Grid.Column="4" FontWeight="SemiBold" Text="说明" />
-              </Grid>
+      <Grid Grid.Row="3" ColumnDefinitions="310,*" ColumnSpacing="12" MinHeight="390">
+        <Border Classes="card" Padding="0">
+          <Grid RowDefinitions="Auto,*">
+            <Border Background="#EAF0F5" Padding="16,12">
+              <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#14213D" Text="文件夹检查结果" />
             </Border>
-            <ListBox
-                x:Name="IssueList"
-                Grid.Row="1"
-                ItemsSource="{Binding VisibleIssues}"
-                SelectionChanged="OnIssueSelectionChanged">
+            <ListBox Grid.Row="1" ItemsSource="{Binding FolderResults}" SelectedItem="{Binding SelectedFolder, Mode=TwoWay}" SelectionChanged="OnFolderSelectionChanged">
               <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="presentation:IssueRow">
-                  <Border BorderBrush="#E1E7ED" BorderThickness="0,0,0,1" Padding="12,9">
-                    <Grid ColumnDefinitions="68,160,210,180,*" ColumnSpacing="10">
-                      <TextBlock FontWeight="SemiBold" Text="{Binding SeverityText}" />
-                      <TextBlock Grid.Column="1" Text="{Binding CategoryText}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Text="{Binding DeviceName}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="3" FontFamily="Consolas, monospace" FontSize="12" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="4" Text="{Binding Message}" TextTrimming="CharacterEllipsis" />
+                <DataTemplate x:DataType="local:FolderResultViewModel">
+                  <Border BorderBrush="#E1E7ED" BorderThickness="0,0,0,1" Padding="13,11">
+                    <Grid ColumnDefinitions="5,*" ColumnSpacing="10">
+                      <Border Background="{Binding StatusColor}" CornerRadius="3" />
+                      <StackPanel Grid.Column="1" Spacing="3">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBlock FontWeight="SemiBold" Text="{Binding FolderName}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="1" FontWeight="SemiBold" Foreground="{Binding StatusColor}" Text="{Binding StatusText}" />
+                        </Grid>
+                        <TextBlock FontSize="11" Foreground="#60758A" Text="{Binding Path}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock FontSize="11" Foreground="#60758A" Text="{Binding CountText}" />
+                      </StackPanel>
                     </Grid>
                   </Border>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
           </Grid>
+        </Border>
 
-          <Border Grid.Row="2" Background="#F7F9FB" BorderBrush="#D7E0E8" BorderThickness="0,1,0,0" Padding="18,12">
-            <TextBlock x:Name="IssueDetail" Foreground="#34495E" Text="选择一条明细，可在这里查看完整说明。" TextWrapping="Wrap" MaxHeight="90" />
-          </Border>
-        </Grid>
-      </Border>
+        <Border Grid.Column="1" Classes="card" Padding="0">
+          <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+            <Grid Margin="16,13" ColumnDefinitions="2*,*,*,*,*" ColumnSpacing="10">
+              <StackPanel Spacing="3"><TextBlock FontSize="11" Foreground="#60758A" Text="当前文件夹结论" /><TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{Binding StatusColor}" Text="{Binding Conclusion}" TextWrapping="Wrap" /></StackPanel>
+              <StackPanel Grid.Column="1" Spacing="3"><TextBlock FontSize="11" Foreground="#60758A" Text="设备目录" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding DirectoryCountText}" /></StackPanel>
+              <StackPanel Grid.Column="2" Spacing="3"><TextBlock FontSize="11" Foreground="#60758A" Text="TXT 文件" /><TextBlock FontSize="18" FontWeight="Bold" Text="{Binding TxtCountText}" /></StackPanel>
+              <StackPanel Grid.Column="3" Spacing="3"><TextBlock FontSize="11" Foreground="#60758A" Text="错误" /><TextBlock FontSize="18" FontWeight="Bold" Foreground="#C0392B" Text="{Binding ErrorCountText}" /></StackPanel>
+              <StackPanel Grid.Column="4" Spacing="3"><TextBlock FontSize="11" Foreground="#60758A" Text="提示" /><TextBlock FontSize="18" FontWeight="Bold" Foreground="#D78C12" Text="{Binding WarningCountText}" /></StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="14,0,14,10">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Button Classes="secondary" Click="OnShowAllClick" Content="全部" />
+                <Button Classes="secondary" Click="OnShowErrorsClick" Content="只看错误" />
+                <Button Classes="secondary" Click="OnShowWarningsClick" Content="只看提示" />
+              </StackPanel>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7">
+                <Button Classes="secondary" Click="OnCopyClick" Content="复制明细" />
+                <Button Classes="secondary" Click="OnOpenLocationClick" Content="打开位置" />
+                <Button Classes="secondary" Click="OnExportCurrentClick" Content="导出当前" IsEnabled="{Binding CanExportCurrent}" />
+                <Button Classes="primary" Click="OnExportAllClick" Content="导出全部" IsEnabled="{Binding CanExportAll}" />
+              </StackPanel>
+            </Grid>
+
+            <Border Grid.Row="2" Background="#EAF0F5" Padding="10,7" Margin="14,0">
+              <Grid ColumnDefinitions="60,135,170,150,*" ColumnSpacing="8">
+                <TextBlock FontWeight="SemiBold" Text="级别" /><TextBlock Grid.Column="1" FontWeight="SemiBold" Text="类别" />
+                <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="设备目录" /><TextBlock Grid.Column="3" FontWeight="SemiBold" Text="文件" />
+                <TextBlock Grid.Column="4" FontWeight="SemiBold" Text="说明" />
+              </Grid>
+            </Border>
+            <ListBox x:Name="IssueList" Grid.Row="3" Margin="14,0" ItemsSource="{Binding VisibleIssues}" SelectionChanged="OnIssueSelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="presentation:IssueRow">
+                  <Border BorderBrush="#E1E7ED" BorderThickness="0,0,0,1" Padding="10,8">
+                    <Grid ColumnDefinitions="60,135,170,150,*" ColumnSpacing="8">
+                      <TextBlock FontWeight="SemiBold" Text="{Binding SeverityText}" />
+                      <TextBlock Grid.Column="1" Text="{Binding CategoryText}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Text="{Binding DeviceName}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="3" FontFamily="Consolas, monospace" FontSize="11" Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="4" Text="{Binding Message}" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Border Grid.Row="4" Background="#F7F9FB" BorderBrush="#D7E0E8" BorderThickness="0,1,0,0" Padding="14,10">
+              <TextBlock x:Name="IssueDetail" Foreground="#34495E" Text="选择一条明细，可在这里查看完整说明。" TextWrapping="Wrap" MaxHeight="72" />
+            </Border>
+          </Grid>
+        </Border>
+      </Grid>
     </Grid>
   </Grid>
 </Window>

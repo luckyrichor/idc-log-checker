@@ -46,17 +46,14 @@ public sealed class AvaloniaViewModelTests
     }
 
     [Fact]
-    public async Task MissingRootBecomesReadableFailureInsteadOfThrowing()
+    public void InvalidRootSelectionIsRejectedWithoutReplacingCurrentSelection()
     {
-        var viewModel = new MainWindowViewModel(new DirectoryScanner([]))
-        {
-            SelectedPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N")),
-        };
+        var viewModel = new MainWindowViewModel(new DirectoryScanner([]));
 
-        await viewModel.RunScanAsync();
-
-        Assert.Equal("检查不通过：发现 1 个错误", viewModel.Conclusion);
-        Assert.Equal("1", viewModel.ErrorCountText);
-        Assert.Single(viewModel.VisibleIssues);
+        Assert.False(viewModel.ReplaceSelection([
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString("N")),
+        ]));
+        Assert.False(viewModel.CanStart);
+        Assert.Empty(viewModel.SelectedPaths);
     }
 }
