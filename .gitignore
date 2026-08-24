@@ -1,0 +1,9 @@
+.DS_Store
+.tools/
+**/bin/
+**/obj/
+artifacts/
+test/.generated/
+test/results/*.json
+test/results/*.log
+发布版/*.exe
