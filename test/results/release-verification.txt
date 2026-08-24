@@ -4,23 +4,25 @@
 日期：2026-08-24
 
 自动化验证
-- dotnet test IDCLogChecker.sln --configuration Release：52/52 通过，0 失败，0 跳过。
+- dotnet test IDCLogChecker.sln --configuration Release：66/66 通过，0 失败，0 跳过。
 - 18 个端到端场景全部通过。
 - 完整 62/3660 生成用例通过，0 错误、0 提示。
 - 两份真实日志均为 62 个设备目录、3660 个 TXT、0 结构错误、0 空文件、86 个一行提示。
 - 真实日志扫描前后全部文件的相对路径、字节数、修改时间一致，证明测试为只读。
+- 批量输入过滤、顺序扫描、单个失败继续、分别显示和导出全部中文报告均有自动化测试。
 
 Windows 发布文件
-- IDC日志检查工具_Avalonia.exe：103702168 字节；PE32+ GUI x86-64。
-  SHA-256：6417a73e7d4180fb810f237c330272f291536797840ae2e588abd69ffdeea520
-- IDC日志检查工具_WinForms.exe：116312462 字节；PE32+ GUI x86-64。
-  SHA-256：334d24f3af6e472206f0ab7dcda541cdf5d1653636d7ec252c6757f665c1758b
+- IDC日志检查工具_Avalonia.exe：103745688 字节；PE32+ GUI x86-64。
+  SHA-256：696b41631bc375b63c35d0a28fa932b607ade8578644e584bfd2c304f5da8c9a
+- IDC日志检查工具_WinForms.exe：116355982 字节；PE32+ GUI x86-64。
+  SHA-256：0a08230fbcdac666cb6b24fdca6b0e100a19bd151715514a72effceffdb0a27a
 - 两个 EXE 均能检出内置资源 IDCLogChecker.Core.Baseline.manifest.json 和基准设备名。
 - 发布版中程序文件共 2 个，每个界面各 1 个自包含单 EXE；另有使用说明和 SHA-256 文档。
 
 macOS 界面验证
 - Avalonia arm64 测试应用已实际启动并完成有效用例、三错误叠加用例，见 avalonia-mac-smoke-test.txt。
+- 批量版主从界面已实际显示；macOS 选择器的双文件夹“打开”操作未由自动化辅助功能完成，不冒充实机通过。
 
 平台边界
-- macOS 无法运行 WinForms，也无法代替 Windows 11 验证 SmartScreen、系统文件选择器和资源管理器定位。
+- macOS 无法运行 WinForms，也无法代替 Windows 11 验证 SmartScreen、系统多文件夹选择器、多项拖入和资源管理器定位。
 - 两个 Windows EXE 的最终点击测试仍需在 Windows 11 x64 实机完成；未将其标记为已通过。

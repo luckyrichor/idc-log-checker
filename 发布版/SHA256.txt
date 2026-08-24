@@ -2,7 +2,7 @@ IDC 日志检查工具发布文件 SHA-256
 ================================
 
 IDC日志检查工具_Avalonia.exe
-6417a73e7d4180fb810f237c330272f291536797840ae2e588abd69ffdeea520
+696b41631bc375b63c35d0a28fa932b607ade8578644e584bfd2c304f5da8c9a
 
 IDC日志检查工具_WinForms.exe
-334d24f3af6e472206f0ab7dcda541cdf5d1653636d7ec252c6757f665c1758b
+0a08230fbcdac666cb6b24fdca6b0e100a19bd151715514a72effceffdb0a27a
