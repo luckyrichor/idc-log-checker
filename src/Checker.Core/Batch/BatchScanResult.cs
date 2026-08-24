@@ -5,8 +5,9 @@ namespace IDCLogChecker.Core.Batch;
 public sealed record FolderScanResult(string Path, ScanResult Result)
 {
     public bool Failed => Result.Summary.ErrorCount > 0;
-    public bool HasWarnings => !Failed && Result.Summary.WarningCount > 0;
-    public bool Clean => !Failed && !HasWarnings;
+    public bool HasIndeterminate => !Failed && Result.Summary.IndeterminateCount > 0;
+    public bool HasWarnings => !Failed && !HasIndeterminate && Result.Summary.WarningCount > 0;
+    public bool Clean => !Failed && !HasIndeterminate && !HasWarnings;
 }
 
 public sealed record BatchScanSummary(

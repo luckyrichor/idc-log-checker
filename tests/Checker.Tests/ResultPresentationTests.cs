@@ -53,6 +53,36 @@ public sealed class ResultPresentationTests
         Assert.Equal(2, presentation.Filter(IssueFilter.All).Count);
     }
 
+    [Fact]
+    public void IndeterminateFindingProducesIncompleteConclusionAndDetailedPurpleRow()
+    {
+        var issue = new ScanIssue(
+            IssueSeverity.Indeterminate,
+            IssueCode.CommandOutputUnrecognized,
+            "未找到预期的CPU使用率字段。",
+            "Device-A",
+            @"C:\Logs\Device-A\display cpu.txt",
+            "CPU使用率字段",
+            "未知返回格式")
+        {
+            RuleCode = "CPU_OUTPUT_UNRECOGNIZED",
+            SuggestedAction = "人工查看TXT内容。",
+        };
+        var result = Result(0, 0, [issue]) with
+        {
+            Summary = Result(0, 0, []).Summary with { IndeterminateCount = 1 },
+        };
+
+        var presentation = ResultPresentation.From(result);
+
+        Assert.Equal("检查未完全确认：有 1 项内容需要人工确认", presentation.Conclusion);
+        Assert.Equal("#7D5BA6", presentation.StatusColor);
+        var row = Assert.Single(presentation.Filter(IssueFilter.Indeterminate));
+        Assert.Equal("无法确认", row.SeverityText);
+        Assert.Equal("CPU_OUTPUT_UNRECOGNIZED", row.RuleCode);
+        Assert.Contains("建议：人工查看TXT内容。", row.DetailText);
+    }
+
     private static ScanResult Result(
         int errorCount,
         int warningCount,

@@ -7,5 +7,11 @@ public sealed record ScanSummary(
     int ActualTxtFileCount,
     int CheckedTxtFileCount,
     int ErrorCount,
-    int WarningCount);
+    int WarningCount)
+{
+    public int IndeterminateCount { get; init; }
 
+    public int ContentNormalCount { get; init; }
+
+    public int UnsupportedContentRuleCount { get; init; }
+}

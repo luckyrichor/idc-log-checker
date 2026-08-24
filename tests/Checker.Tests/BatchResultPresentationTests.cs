@@ -34,16 +34,36 @@ public sealed class BatchResultPresentationTests
         ])).DefaultSelectedIndex);
     }
 
+    [Fact]
+    public void SelectsFailureThenIndeterminateThenWarning()
+    {
+        var result = Batch([
+            Folder("warning", 0, 1),
+            Folder("indeterminate", 0, 0, 2),
+            Folder("failed", 1, 0),
+        ]);
+
+        var presentation = BatchResultPresentation.From(result);
+
+        Assert.Equal(2, presentation.DefaultSelectedIndex);
+        Assert.Equal("无法确认", presentation.Folders[1].StatusText);
+        Assert.Equal("#7D5BA6", presentation.Folders[1].StatusColor);
+        Assert.Equal(2, presentation.Folders[1].IndeterminateCount);
+    }
+
     private static BatchScanResult Batch(IReadOnlyList<FolderScanResult> folders) => new(
         new BatchInputResult(folders.Select(folder => folder.Path).ToArray(), [], []),
         DateTimeOffset.Now,
         DateTimeOffset.Now,
         folders);
 
-    private static FolderScanResult Folder(string path, int errors, int warnings)
+    private static FolderScanResult Folder(string path, int errors, int warnings, int indeterminate = 0)
     {
         var now = DateTimeOffset.Now;
         return new FolderScanResult(path, new ScanResult(path, now, now,
-            new ScanSummary(62, 62, 3660, 3660, 3660, errors, warnings), []));
+            new ScanSummary(62, 62, 3660, 3660, 3660, errors, warnings)
+            {
+                IndeterminateCount = indeterminate,
+            }, []));
     }
 }

@@ -8,6 +8,7 @@ public sealed record FolderResultPresentation(
     string StatusText,
     string StatusColor,
     int ErrorCount,
+    int IndeterminateCount,
     int WarningCount,
     ResultPresentation Detail);
 
@@ -36,6 +37,7 @@ public sealed class BatchResultPresentation
             var (text, color) = folder switch
             {
                 { Failed: true } => ("不通过", "#C0392B"),
+                { HasIndeterminate: true } => ("无法确认", "#7D5BA6"),
                 { HasWarnings: true } => ("有提示", "#D78C12"),
                 _ => ("完全通过", "#1F8A70"),
             };
@@ -45,11 +47,13 @@ public sealed class BatchResultPresentation
                 text,
                 color,
                 folder.Result.Summary.ErrorCount,
+                folder.Result.Summary.IndeterminateCount,
                 folder.Result.Summary.WarningCount,
                 detail);
         }).ToArray();
 
         var selected = Array.FindIndex(folders, folder => folder.ErrorCount > 0);
+        if (selected < 0) selected = Array.FindIndex(folders, folder => folder.IndeterminateCount > 0);
         if (selected < 0) selected = Array.FindIndex(folders, folder => folder.WarningCount > 0);
         if (selected < 0 && folders.Length > 0) selected = 0;
         return new BatchResultPresentation(result, folders, selected);
