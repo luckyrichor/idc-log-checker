@@ -43,6 +43,14 @@ public sealed class GenericExecutionRuleSetTests
         Assert.Empty(GenericExecutionRuleSet.Evaluate(Context(CommandKind.Log, line)));
     }
 
+    [Theory]
+    [InlineData(CommandKind.Interface, "ARP type: ARPA, ARP Timeout: 3600 seconds")]
+    [InlineData(CommandKind.BgpSummary, "Hold timer timeout interval: 180 seconds")]
+    public void ProtocolTimeoutFieldsDoNotBecomeExecutionFailures(CommandKind kind, string line)
+    {
+        Assert.Empty(GenericExecutionRuleSet.Evaluate(Context(kind, line)));
+    }
+
     private static ContentAnalysisContext Context(CommandKind kind, params string[] lines)
     {
         var document = new CommandOutputDocument("sample.txt", 10, lines.Length, lines, string.Join('\n', lines), false);

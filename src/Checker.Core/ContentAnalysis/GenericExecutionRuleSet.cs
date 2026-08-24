@@ -47,8 +47,12 @@ public static class GenericExecutionRuleSet
         {
             if (context.CommandKind is not (CommandKind.Log or CommandKind.Configuration))
             {
+                var trimmed = line.TrimStart();
                 if (line.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
-                    line.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+                    line.Contains("operation timeout", StringComparison.OrdinalIgnoreCase) ||
+                    line.Contains("connection timeout", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.StartsWith("% timeout", StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.Equals("timeout", StringComparison.OrdinalIgnoreCase))
                 {
                     return [new ContentFinding(
                         "CLI_TIMEOUT", IssueSeverity.Error, IssueCode.CommandTimeout,

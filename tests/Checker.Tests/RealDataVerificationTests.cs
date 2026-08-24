@@ -82,6 +82,7 @@ public sealed class RealDataVerificationTests
         Assert.Equal(132, Count(IssueCode.BgpPeerNotFound));
         Assert.Equal(4, Count(IssueCode.BgpNeighborNotFound));
         Assert.Equal(2, Count(IssueCode.CommandTooManyParameters));
+        Assert.Equal(672, result.Summary.ErrorCount);
         Assert.Equal(2, Count(IssueCode.NtpUnsynchronized));
         Assert.Equal(16, Count(IssueCode.AlarmCritical));
         Assert.Equal(96, Count(IssueCode.AlarmMajor));
