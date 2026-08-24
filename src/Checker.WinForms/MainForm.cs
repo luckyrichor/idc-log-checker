@@ -66,6 +66,7 @@ public partial class MainForm : Form
         inputNoticeLabel.Text = _controller.InputNoticeText;
         totalValueLabel.Text = _controller.SelectedPaths.Count.ToString();
         cleanValueLabel.Text = "0";
+        batchIndeterminateValueLabel.Text = "0";
         batchWarningValueLabel.Text = "0";
         failedValueLabel.Text = "0";
         folderGrid.Rows.Clear();
@@ -121,6 +122,7 @@ public partial class MainForm : Form
         var summary = _controller.Summary!;
         totalValueLabel.Text = summary.TotalCount.ToString();
         cleanValueLabel.Text = summary.CleanCount.ToString();
+        batchIndeterminateValueLabel.Text = summary.IndeterminateCount.ToString();
         batchWarningValueLabel.Text = summary.WarningCount.ToString();
         failedValueLabel.Text = summary.FailedCount.ToString();
         folderGrid.Rows.Clear();
@@ -130,10 +132,12 @@ public partial class MainForm : Form
                 folder.FolderName,
                 folder.StatusText,
                 folder.ErrorCount,
-                folder.WarningCount);
+                folder.IndeterminateCount,
+                folder.WarningCount,
+                folder.Path);
             var row = folderGrid.Rows[rowIndex];
             row.Tag = folder.Path;
-            row.Cells[0].ToolTipText = folder.Path;
+            foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = cell.Value?.ToString() ?? string.Empty;
             row.Cells[1].Style.ForeColor = ColorTranslator.FromHtml(folder.StatusColor);
             row.Cells[1].Style.Font = new Font(folderGrid.Font, FontStyle.Bold);
         }
@@ -172,7 +176,10 @@ public partial class MainForm : Form
         directoriesValueLabel.Text = $"{result.Summary.ActualDirectoryCount} / {result.Summary.ExpectedDirectoryCount}";
         txtValueLabel.Text = $"{result.Summary.ActualTxtFileCount} / {result.Summary.ExpectedTxtFileCount}";
         errorsValueLabel.Text = result.Summary.ErrorCount.ToString();
+        indeterminateValueLabel.Text = result.Summary.IndeterminateCount.ToString();
         warningsValueLabel.Text = result.Summary.WarningCount.ToString();
+        contentNormalValueLabel.Text = result.Summary.ContentNormalCount.ToString();
+        unsupportedRuleValueLabel.Text = result.Summary.UnsupportedContentRuleCount.ToString();
         exportCurrentButton.Enabled = true;
         ShowRows(IssueFilter.All);
     }
@@ -185,7 +192,10 @@ public partial class MainForm : Form
         directoriesValueLabel.Text = "—";
         txtValueLabel.Text = "—";
         errorsValueLabel.Text = "0";
+        indeterminateValueLabel.Text = "0";
         warningsValueLabel.Text = "0";
+        contentNormalValueLabel.Text = "0";
+        unsupportedRuleValueLabel.Text = "0";
         detailTextBox.Text = "选择一条明细，可在这里查看完整说明。";
         exportCurrentButton.Enabled = false;
         copyButton.Enabled = false;
@@ -194,6 +204,7 @@ public partial class MainForm : Form
 
     private void FilterButton_Click(object? sender, EventArgs e) => ShowRows(sender == errorsButton
         ? IssueFilter.Errors
+        : sender == indeterminateButton ? IssueFilter.Indeterminate
         : sender == warningsButton ? IssueFilter.Warnings : IssueFilter.All);
 
     private void ShowRows(IssueFilter filter)
@@ -203,9 +214,11 @@ public partial class MainForm : Form
         _visibleRows = _controller.BuildIssueRows(filter);
         foreach (var row in _visibleRows)
         {
-            var index = issueGrid.Rows.Add(row.SeverityText, row.CategoryText, row.DeviceName, row.FileName, row.Message);
+            var index = issueGrid.Rows.Add(row.SeverityText, row.CategoryText, row.DeviceName, row.FileName, row.Message, row.Actual, row.Path);
             issueGrid.Rows[index].Cells[0].Style.ForeColor = ColorTranslator.FromHtml(row.ColorHex);
             issueGrid.Rows[index].Cells[0].Style.Font = new Font(issueGrid.Font, FontStyle.Bold);
+            foreach (DataGridViewCell cell in issueGrid.Rows[index].Cells)
+                cell.ToolTipText = cell.Value?.ToString() ?? string.Empty;
         }
     }
 
@@ -289,7 +302,7 @@ public partial class MainForm : Form
     {
         selectionSummaryLabel.Text = "尚未选择文件夹";
         inputNoticeLabel.Text = "可点击选择多个文件夹，也可将多个文件夹拖入窗口";
-        totalValueLabel.Text = cleanValueLabel.Text = batchWarningValueLabel.Text = failedValueLabel.Text = "0";
+        totalValueLabel.Text = cleanValueLabel.Text = batchIndeterminateValueLabel.Text = batchWarningValueLabel.Text = failedValueLabel.Text = "0";
         ApplyCurrentFolder(null);
         statusLabel.Text = "请选择需要检查的日志文件夹";
         startButton.Enabled = false;
@@ -303,6 +316,7 @@ public partial class MainForm : Form
         startButton.Enabled = !busy && _controller.CanStart;
         allButton.Enabled = !busy;
         errorsButton.Enabled = !busy;
+        indeterminateButton.Enabled = !busy;
         warningsButton.Enabled = !busy;
         AllowDrop = !busy;
         UseWaitCursor = busy;

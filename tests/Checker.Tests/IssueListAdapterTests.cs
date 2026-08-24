@@ -52,6 +52,32 @@ public sealed class IssueListAdapterTests
         Assert.Equal(2, IssueListAdapter.BuildRows(presentation, IssueFilter.All).Count);
     }
 
+    [Fact]
+    public void IndeterminateRowUsesPurpleAndKeepsActualAndSuggestion()
+    {
+        var issue = new ScanIssue(
+            IssueSeverity.Indeterminate,
+            IssueCode.CommandOutputUnrecognized,
+            "无法确认输出格式。",
+            "设备甲",
+            @"C:\日志\设备甲\display cpu.txt",
+            "CPU使用率字段",
+            "NEW FORMAT")
+        {
+            RuleCode = "COMMAND_OUTPUT_UNRECOGNIZED",
+            SuggestedAction = "人工查看TXT。",
+        };
+        var summary = Result([issue]).Summary with { IndeterminateCount = 1 };
+        var result = Result([issue]) with { Summary = summary };
+
+        var row = Assert.Single(IssueListAdapter.BuildRows(
+            ResultPresentation.From(result), IssueFilter.Indeterminate));
+
+        Assert.Equal("#7D5BA6", row.ColorHex);
+        Assert.Equal("NEW FORMAT", row.Actual);
+        Assert.Contains("建议：人工查看TXT。", row.DetailText);
+    }
+
     private static ScanResult Result(IReadOnlyList<ScanIssue> issues)
     {
         var now = DateTimeOffset.Now;

@@ -9,6 +9,7 @@ public sealed record IssueListRow(
     string FileName,
     string Path,
     string Message,
+    string Actual,
     string DetailText,
     string ColorHex);
 
@@ -27,10 +28,12 @@ public static class IssueListAdapter
             row.FileName,
             row.Path,
             row.Message,
+            row.Actual,
             row.DetailText,
             row.Severity switch
             {
                 Core.Scanning.IssueSeverity.Error => "#C0392B",
+                Core.Scanning.IssueSeverity.Indeterminate => "#7D5BA6",
                 _ => "#D78C12",
             })).ToArray();
     }

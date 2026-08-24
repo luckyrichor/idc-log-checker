@@ -53,6 +53,23 @@ public sealed class BatchFormControllerTests
         Assert.Equal("提示", warnings[0].SeverityText);
     }
 
+    [Fact]
+    public async Task ExposesIndeterminateFolderAndIssueFilter()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("logs/Device-S5552/display cpu.txt", "prompt\nNEW FORMAT\nEND\n");
+        var controller = new BatchFormController(new BatchScanCoordinator(new DirectoryScanner([
+            new BaselineDevice("Device-S5552", ["display cpu.txt"]),
+        ])));
+        controller.ReplaceSelection([Path.Combine(fixture.Path, "logs")]);
+
+        await controller.RunAsync();
+
+        Assert.Equal(1, controller.Summary?.IndeterminateCount);
+        Assert.Equal("无法确认", controller.CurrentFolder?.StatusText);
+        Assert.Single(controller.BuildIssueRows(IssueFilter.Indeterminate));
+    }
+
     private static BatchFormController Controller() => new(new BatchScanCoordinator(
         new DirectoryScanner([new BaselineDevice("Device-A", ["one.txt"])])));
 }
