@@ -49,6 +49,27 @@ public sealed class ChineseBatchReportWriterTests
         Assert.Contains("通过但有提示", await File.ReadAllTextAsync(output));
     }
 
+    [Fact]
+    public void BatchSummaryCountsIndeterminateFoldersBeforeWarnings()
+    {
+        var now = DateTimeOffset.Now;
+        var summary = new ScanSummary(62, 62, 3660, 3660, 3660, 0, 0)
+        {
+            IndeterminateCount = 2,
+        };
+        var batch = new BatchScanResult(
+            new BatchInputResult([@"C:\批次\待确认"], [], []),
+            now,
+            now,
+            [new FolderScanResult(@"C:\批次\待确认", new ScanResult(@"C:\批次\待确认", now, now, summary, []))]);
+
+        var report = ChineseBatchReportWriter.Write(batch);
+
+        Assert.Contains("批次结论：存在无法确认项，1 个文件夹需要人工确认", report);
+        Assert.Contains("无法确认：1", report);
+        Assert.Contains("无法确认合计：2", report);
+    }
+
     private static FolderScanResult Folder(string path, int errors, int warnings)
     {
         var now = DateTimeOffset.Now;

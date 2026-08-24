@@ -1,4 +1,5 @@
 using System.Text;
+using IDCLogChecker.Core.ContentAnalysis;
 using IDCLogChecker.Core.Scanning;
 
 namespace IDCLogChecker.Core.Reporting;
@@ -21,7 +22,10 @@ public static class ChineseTextReportWriter
         builder.AppendLine($"设备目录：期望 {result.Summary.ExpectedDirectoryCount}，实际 {result.Summary.ActualDirectoryCount}");
         builder.AppendLine($"TXT 文件：期望 {result.Summary.ExpectedTxtFileCount}，实际 {result.Summary.ActualTxtFileCount}，已检查 {result.Summary.CheckedTxtFileCount}");
         builder.AppendLine($"错误：{result.Summary.ErrorCount}");
+        builder.AppendLine($"无法确认：{result.Summary.IndeterminateCount}");
         builder.AppendLine($"提示：{result.Summary.WarningCount}");
+        builder.AppendLine($"内容确认正常：{result.Summary.ContentNormalCount}");
+        builder.AppendLine($"暂未配置内容规则：{result.Summary.UnsupportedContentRuleCount}");
 
         if (result.Issues.Count == 0)
         {
@@ -31,6 +35,7 @@ public static class ChineseTextReportWriter
         }
 
         AppendSection(builder, "错误明细", result.Issues.Where(issue => issue.Severity == IssueSeverity.Error));
+        AppendSection(builder, "无法确认明细", result.Issues.Where(issue => issue.Severity == IssueSeverity.Indeterminate));
         AppendSection(builder, "提示明细", result.Issues.Where(issue => issue.Severity == IssueSeverity.Warning));
         return builder.ToString();
     }
@@ -60,6 +65,11 @@ public static class ChineseTextReportWriter
             return "检查不通过";
         }
 
+        if (result.Summary.IndeterminateCount > 0)
+        {
+            return "检查未完全确认，需要人工查看无法确认项";
+        }
+
         return result.Summary.WarningCount > 0
             ? "检查通过，但有提示需要关注"
             : "检查通过";
@@ -70,7 +80,11 @@ public static class ChineseTextReportWriter
         string title,
         IEnumerable<ScanIssue> issues)
     {
-        var items = issues.ToArray();
+        var items = issues
+            .OrderBy(issue => CodeText(issue.Code), StringComparer.Ordinal)
+            .ThenBy(issue => issue.DeviceName, StringComparer.Ordinal)
+            .ThenBy(issue => issue.Path, StringComparer.Ordinal)
+            .ToArray();
         if (items.Length == 0)
         {
             return;
@@ -79,32 +93,48 @@ public static class ChineseTextReportWriter
         builder.AppendLine();
         builder.AppendLine(title);
         builder.AppendLine(new string('-', 32));
-        for (var index = 0; index < items.Length; index++)
+        var groups = items.GroupBy(issue => issue.Code).ToArray();
+        for (var groupIndex = 0; groupIndex < groups.Length; groupIndex++)
         {
-            var issue = items[index];
-            builder.AppendLine($"{index + 1}. 【{SeverityText(issue.Severity)}】{CodeText(issue.Code)}");
-            builder.AppendLine($"   说明：{issue.Message}");
-            if (!string.IsNullOrWhiteSpace(issue.DeviceName))
+            var group = groups[groupIndex].ToArray();
+            builder.AppendLine($"{groupIndex + 1}. 【{SeverityText(group[0].Severity)}】{CodeText(group[0].Code)}（{group.Length}）");
+            for (var itemIndex = 0; itemIndex < group.Length; itemIndex++)
             {
-                builder.AppendLine($"   设备：{issue.DeviceName}");
-            }
+                var issue = group[itemIndex];
+                builder.AppendLine($"   {groupIndex + 1}.{itemIndex + 1} 说明：{Safe(issue.Message)}");
+                if (!string.IsNullOrWhiteSpace(issue.DeviceName))
+                {
+                    builder.AppendLine($"       设备：{Safe(issue.DeviceName)}");
+                }
 
-            if (!string.IsNullOrWhiteSpace(issue.Path))
-            {
-                builder.AppendLine($"   位置：{issue.Path}");
-            }
+                if (!string.IsNullOrWhiteSpace(issue.Path))
+                {
+                    builder.AppendLine($"       文件：{DisplayFileName(issue.Path)}");
+                    builder.AppendLine($"       位置：{Safe(issue.Path)}");
+                }
 
-            if (!string.IsNullOrWhiteSpace(issue.Expected))
-            {
-                builder.AppendLine($"   期望：{issue.Expected}");
-            }
+                if (!string.IsNullOrWhiteSpace(issue.RuleCode))
+                {
+                    builder.AppendLine($"       规则编号：{Safe(issue.RuleCode)}");
+                }
 
-            if (!string.IsNullOrWhiteSpace(issue.Actual))
-            {
-                builder.AppendLine($"   实际：{issue.Actual}");
-            }
+                if (!string.IsNullOrWhiteSpace(issue.Expected))
+                {
+                    builder.AppendLine($"       期望：{Safe(issue.Expected)}");
+                }
 
-            builder.AppendLine();
+                if (!string.IsNullOrWhiteSpace(issue.Actual))
+                {
+                    builder.AppendLine($"       实际：{Safe(issue.Actual)}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(issue.SuggestedAction))
+                {
+                    builder.AppendLine($"       建议：{Safe(issue.SuggestedAction)}");
+                }
+
+                builder.AppendLine();
+            }
         }
     }
 
@@ -162,4 +192,9 @@ public static class ChineseTextReportWriter
         IssueSeverity.Warning => "提示",
         _ => severity.ToString(),
     };
+
+    private static string Safe(string text) => SensitiveTextRedactor.Redact(text);
+
+    private static string DisplayFileName(string path) =>
+        System.IO.Path.GetFileName(path.Replace('\\', '/'));
 }

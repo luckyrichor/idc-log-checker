@@ -17,7 +17,16 @@ public sealed record BatchScanSummary(
     int WarningCount,
     int FailedCount,
     int TotalErrorCount,
-    int TotalWarningCount);
+    int TotalWarningCount)
+{
+    public int IndeterminateCount { get; init; }
+
+    public int TotalIndeterminateCount { get; init; }
+
+    public int TotalContentNormalCount { get; init; }
+
+    public int TotalUnsupportedContentRuleCount { get; init; }
+}
 
 public sealed record BatchScanResult(
     BatchInputResult Input,
@@ -32,5 +41,11 @@ public sealed record BatchScanResult(
         Folders.Count(folder => folder.HasWarnings),
         Folders.Count(folder => folder.Failed),
         Folders.Sum(folder => folder.Result.Summary.ErrorCount),
-        Folders.Sum(folder => folder.Result.Summary.WarningCount));
+        Folders.Sum(folder => folder.Result.Summary.WarningCount))
+    {
+        IndeterminateCount = Folders.Count(folder => folder.HasIndeterminate),
+        TotalIndeterminateCount = Folders.Sum(folder => folder.Result.Summary.IndeterminateCount),
+        TotalContentNormalCount = Folders.Sum(folder => folder.Result.Summary.ContentNormalCount),
+        TotalUnsupportedContentRuleCount = Folders.Sum(folder => folder.Result.Summary.UnsupportedContentRuleCount),
+    };
 }

@@ -21,10 +21,14 @@ public static class ChineseBatchReportWriter
         builder.AppendLine($"文件夹总数：{summary.TotalCount}");
         builder.AppendLine($"已完成：{summary.CompletedCount}");
         builder.AppendLine($"完全通过：{summary.CleanCount}");
+        builder.AppendLine($"无法确认：{summary.IndeterminateCount}");
         builder.AppendLine($"通过但有提示：{summary.WarningCount}");
         builder.AppendLine($"不通过：{summary.FailedCount}");
         builder.AppendLine($"错误合计：{summary.TotalErrorCount}");
+        builder.AppendLine($"无法确认合计：{summary.TotalIndeterminateCount}");
         builder.AppendLine($"提示合计：{summary.TotalWarningCount}");
+        builder.AppendLine($"内容确认正常合计：{summary.TotalContentNormalCount}");
+        builder.AppendLine($"暂未配置内容规则合计：{summary.TotalUnsupportedContentRuleCount}");
 
         if (result.Input.SkippedItems.Count > 0 || result.Input.DuplicatePaths.Count > 0)
         {
@@ -71,6 +75,7 @@ public static class ChineseBatchReportWriter
     private static string BatchConclusion(BatchScanSummary summary) => summary switch
     {
         { FailedCount: > 0 } => $"不通过，{summary.FailedCount} 个文件夹存在错误",
+        { IndeterminateCount: > 0 } => $"存在无法确认项，{summary.IndeterminateCount} 个文件夹需要人工确认",
         { WarningCount: > 0 } => $"通过但有提示，{summary.WarningCount} 个文件夹需要关注",
         _ => "全部通过",
     };

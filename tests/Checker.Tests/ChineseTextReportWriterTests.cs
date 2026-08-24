@@ -71,6 +71,79 @@ public sealed class ChineseTextReportWriterTests
         Assert.Contains("IDC 日志完整性检查报告", await File.ReadAllTextAsync(output), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void GroupsSameContentTypeAndListsEveryDeviceAndTxtFile()
+    {
+        var issues = new[]
+        {
+            ContentIssue("Device-A", "display bgp peer.txt"),
+            ContentIssue("Device-B", "show ip bgp summary.txt"),
+        };
+        var result = Result(issues, errorCount: 2, warningCount: 0);
+
+        var report = ChineseTextReportWriter.Write(result);
+
+        Assert.Contains("设备不识别命令（2）", report);
+        Assert.Contains("设备：Device-A", report);
+        Assert.Contains("文件：display bgp peer.txt", report);
+        Assert.Contains("设备：Device-B", report);
+        Assert.Contains("文件：show ip bgp summary.txt", report);
+        Assert.Contains("规则编号：CLI_UNRECOGNIZED_COMMAND", report);
+        Assert.Contains("建议：核对命令模板。", report);
+    }
+
+    [Fact]
+    public void ReportRedactsCredentialEvenWhenIssueWasCreatedByAnotherCaller()
+    {
+        var issue = ContentIssue("Device-A", "show running-config.txt") with
+        {
+            Actual = "snmp-agent community read SecretValue",
+        };
+
+        var report = ChineseTextReportWriter.Write(Result([issue], 1, 0));
+
+        Assert.DoesNotContain("SecretValue", report);
+        Assert.Contains("***已隐藏***", report);
+    }
+
+    [Fact]
+    public void IndeterminateResultHasItsOwnSummaryAndSection()
+    {
+        var issue = new ScanIssue(
+            IssueSeverity.Indeterminate,
+            IssueCode.CommandOutputUnrecognized,
+            "无法确认新格式。",
+            "Device-A",
+            @"C:\Logs\Device-A\display cpu.txt")
+        {
+            RuleCode = "COMMAND_OUTPUT_UNRECOGNIZED",
+            SuggestedAction = "人工查看。",
+        };
+        var result = Result([issue], 0, 0) with
+        {
+            Summary = Result([], 0, 0).Summary with { IndeterminateCount = 1 },
+        };
+
+        var report = ChineseTextReportWriter.Write(result);
+
+        Assert.Contains("总体结论：检查未完全确认", report);
+        Assert.Contains("无法确认：1", report);
+        Assert.Contains("无法确认明细", report);
+    }
+
+    private static ScanIssue ContentIssue(string device, string fileName) => new(
+        IssueSeverity.Error,
+        IssueCode.CommandUnrecognized,
+        "设备不识别该命令。",
+        device,
+        $@"C:\Logs\{device}\{fileName}",
+        "设备应识别命令",
+        "% Unrecognized command")
+    {
+        RuleCode = "CLI_UNRECOGNIZED_COMMAND",
+        SuggestedAction = "核对命令模板。",
+    };
+
     private static ScanResult Result(
         IReadOnlyList<ScanIssue> issues,
         int errorCount,
