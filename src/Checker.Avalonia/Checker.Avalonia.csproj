@@ -16,4 +16,3 @@
     <ProjectReference Include="../Checker.Core/Checker.Core.csproj" />
   </ItemGroup>
 </Project>
-

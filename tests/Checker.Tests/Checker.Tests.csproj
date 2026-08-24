@@ -16,5 +16,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Checker.Core/Checker.Core.csproj" />
+    <ProjectReference Include="../../src/Checker.Avalonia/Checker.Avalonia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Checker.WinForms/IssueListAdapter.cs" Link="WinForms/IssueListAdapter.cs" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,6 @@
+WinForms 平台验证边界
+====================
+
+WinForms 项目可在 macOS 上使用 EnableWindowsTargeting 交叉编译，但无法在 macOS 上运行。
+交叉编译已完成，生成文件为 PE32+ GUI x86-64、自包含、单 EXE；共享核心的 52 项自动化测试全部通过。
+界面点击、Windows 文件选择器、资源管理器定位和系统字体显示，仍需在 Windows 11 实机确认。

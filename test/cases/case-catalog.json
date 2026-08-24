@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "caseCount": 18,
+  "cases": [
+    { "id": "01-valid", "expected": "无错误、无提示" },
+    { "id": "02-root-missing", "expected": "错误：所选文件夹不存在" },
+    { "id": "03-wrong-root-level", "expected": "错误：选择层级错误，缺少基准目录" },
+    { "id": "04-missing-directory", "expected": "错误：缺少设备目录" },
+    { "id": "05-extra-directory", "expected": "错误：多出设备目录" },
+    { "id": "06-directory-case", "expected": "错误：设备目录名称大小写不一致" },
+    { "id": "07-missing-txt", "expected": "错误：缺少 TXT 文件" },
+    { "id": "08-extra-txt", "expected": "错误：多出 TXT 文件" },
+    { "id": "09-txt-case", "expected": "错误：TXT 文件名大小写不一致" },
+    { "id": "10-zero-byte", "expected": "错误：0 字节空文件" },
+    { "id": "11-bom-only", "expected": "错误：仅 BOM 的空文件" },
+    { "id": "12-whitespace-only", "expected": "错误：仅空白内容" },
+    { "id": "13-one-line", "expected": "提示：文件只有一行" },
+    { "id": "14-non-txt", "expected": "提示：存在非 TXT 文件" },
+    { "id": "15-nested-directory", "expected": "提示：存在额外子目录" },
+    { "id": "16-chinese-space-path", "expected": "中文及空格路径可正常检查" },
+    { "id": "17-multiple-findings", "expected": "同时完整列出至少三类问题" },
+    { "id": "18-report-export", "expected": "可导出 UTF-8 中文报告" }
+  ]
+}
