@@ -94,6 +94,7 @@ public sealed partial class MainWindow : Window
 
     private void OnShowAllClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.All);
     private void OnShowErrorsClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Errors);
+    private void OnShowIndeterminateClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Indeterminate);
     private void OnShowWarningsClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Warnings);
 
     private void OnIssueSelectionChanged(object? sender, SelectionChangedEventArgs e)

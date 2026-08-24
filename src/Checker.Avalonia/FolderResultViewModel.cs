@@ -9,5 +9,8 @@ public sealed class FolderResultViewModel(FolderResultPresentation presentation)
     public string FolderName => Presentation.FolderName;
     public string StatusText => Presentation.StatusText;
     public string StatusColor => Presentation.StatusColor;
-    public string CountText => $"错误 {Presentation.ErrorCount} · 提示 {Presentation.WarningCount}";
+    public int ErrorCount => Presentation.ErrorCount;
+    public int IndeterminateCount => Presentation.IndeterminateCount;
+    public int WarningCount => Presentation.WarningCount;
+    public string CountText => $"错误 {ErrorCount} · 无法确认 {IndeterminateCount} · 提示 {WarningCount}";
 }

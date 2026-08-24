@@ -22,9 +22,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _directoryCountText = "—";
     private string _txtCountText = "—";
     private string _errorCountText = "0";
+    private string _indeterminateCountText = "0";
     private string _warningCountText = "0";
+    private string _contentNormalCountText = "0";
+    private string _unsupportedContentRuleCountText = "0";
     private string _totalFolderCountText = "0";
     private string _cleanFolderCountText = "0";
+    private string _indeterminateFolderCountText = "0";
     private string _warningFolderCountText = "0";
     private string _failedFolderCountText = "0";
     private bool _isBusy;
@@ -71,9 +75,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string DirectoryCountText { get => _directoryCountText; private set => SetField(ref _directoryCountText, value); }
     public string TxtCountText { get => _txtCountText; private set => SetField(ref _txtCountText, value); }
     public string ErrorCountText { get => _errorCountText; private set => SetField(ref _errorCountText, value); }
+    public string IndeterminateCountText { get => _indeterminateCountText; private set => SetField(ref _indeterminateCountText, value); }
     public string WarningCountText { get => _warningCountText; private set => SetField(ref _warningCountText, value); }
+    public string ContentNormalCountText { get => _contentNormalCountText; private set => SetField(ref _contentNormalCountText, value); }
+    public string UnsupportedContentRuleCountText { get => _unsupportedContentRuleCountText; private set => SetField(ref _unsupportedContentRuleCountText, value); }
     public string TotalFolderCountText { get => _totalFolderCountText; private set => SetField(ref _totalFolderCountText, value); }
     public string CleanFolderCountText { get => _cleanFolderCountText; private set => SetField(ref _cleanFolderCountText, value); }
+    public string IndeterminateFolderCountText { get => _indeterminateFolderCountText; private set => SetField(ref _indeterminateFolderCountText, value); }
     public string WarningFolderCountText { get => _warningFolderCountText; private set => SetField(ref _warningFolderCountText, value); }
     public string FailedFolderCountText { get => _failedFolderCountText; private set => SetField(ref _failedFolderCountText, value); }
     public double ProgressPercent { get => _progressPercent; private set => SetField(ref _progressPercent, value); }
@@ -154,6 +162,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             var summary = result.Summary;
             TotalFolderCountText = summary.TotalCount.ToString();
             CleanFolderCountText = summary.CleanCount.ToString();
+            IndeterminateFolderCountText = summary.IndeterminateCount.ToString();
             WarningFolderCountText = summary.WarningCount.ToString();
             FailedFolderCountText = summary.FailedCount.ToString();
             ProgressPercent = 100;
@@ -185,7 +194,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             DirectoryCountText = "—";
             TxtCountText = "—";
             ErrorCountText = "0";
+            IndeterminateCountText = "0";
             WarningCountText = "0";
+            ContentNormalCountText = "0";
+            UnsupportedContentRuleCountText = "0";
             VisibleIssues.Clear();
             return;
         }
@@ -196,7 +208,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         DirectoryCountText = $"{result.Summary.ActualDirectoryCount} / {result.Summary.ExpectedDirectoryCount}";
         TxtCountText = $"{result.Summary.ActualTxtFileCount} / {result.Summary.ExpectedTxtFileCount}";
         ErrorCountText = result.Summary.ErrorCount.ToString();
+        IndeterminateCountText = result.Summary.IndeterminateCount.ToString();
         WarningCountText = result.Summary.WarningCount.ToString();
+        ContentNormalCountText = result.Summary.ContentNormalCount.ToString();
+        UnsupportedContentRuleCountText = result.Summary.UnsupportedContentRuleCount.ToString();
         ApplyFilter(IssueFilter.All);
     }
 
@@ -209,12 +224,16 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         HasResult = false;
         TotalFolderCountText = _input.ValidPaths.Count.ToString();
         CleanFolderCountText = "0";
+        IndeterminateFolderCountText = "0";
         WarningFolderCountText = "0";
         FailedFolderCountText = "0";
         DirectoryCountText = "—";
         TxtCountText = "—";
         ErrorCountText = "0";
+        IndeterminateCountText = "0";
         WarningCountText = "0";
+        ContentNormalCountText = "0";
+        UnsupportedContentRuleCountText = "0";
         Conclusion = "等待开始检查";
         StatusColor = "#60758A";
         StatusText = "已选择文件夹，点击“开始检查”";

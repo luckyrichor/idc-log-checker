@@ -82,6 +82,24 @@ public sealed class AvaloniaBatchViewModelTests
         Assert.Equal("0", viewModel.WarningCountText);
     }
 
+    [Fact]
+    public async Task BatchSummaryShowsIndeterminateFolderCount()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("indeterminate/Device-S5552/display cpu.txt", "prompt\nNEW FORMAT\nEND\n");
+        var scanner = new DirectoryScanner([
+            new BaselineDevice("Device-S5552", ["display cpu.txt"]),
+        ]);
+        var viewModel = new MainWindowViewModel(new BatchScanCoordinator(scanner));
+        viewModel.ReplaceSelection([Path.Combine(fixture.Path, "indeterminate")]);
+
+        await viewModel.RunBatchScanAsync();
+
+        Assert.Equal("1", viewModel.IndeterminateFolderCountText);
+        Assert.Equal("无法确认", viewModel.SelectedFolder?.StatusText);
+        Assert.Contains("无法确认 1", viewModel.SelectedFolder?.CountText);
+    }
+
     private static MainWindowViewModel ViewModel()
     {
         var scanner = new DirectoryScanner([

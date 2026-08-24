@@ -56,4 +56,26 @@ public sealed class AvaloniaViewModelTests
         Assert.False(viewModel.CanStart);
         Assert.Empty(viewModel.SelectedPaths);
     }
+
+    [Fact]
+    public async Task IndeterminateContentHasCounterAndDedicatedFilter()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("Device-S5552/display cpu.txt", "Device-S5552#display cpu\r\nNEW FORMAT\r\nEND\r\n");
+        var viewModel = new MainWindowViewModel(new DirectoryScanner([
+            new BaselineDevice("Device-S5552", ["display cpu.txt"]),
+        ]))
+        {
+            SelectedPath = fixture.Path,
+        };
+
+        await viewModel.RunBatchScanAsync();
+        viewModel.ApplyFilter(IssueFilter.Indeterminate);
+
+        Assert.Equal("1", viewModel.IndeterminateCountText);
+        Assert.Equal("0", viewModel.ContentNormalCountText);
+        Assert.Equal("0", viewModel.UnsupportedContentRuleCountText);
+        Assert.Single(viewModel.VisibleIssues);
+        Assert.All(viewModel.VisibleIssues, row => Assert.Equal(IssueSeverity.Indeterminate, row.Severity));
+    }
 }
