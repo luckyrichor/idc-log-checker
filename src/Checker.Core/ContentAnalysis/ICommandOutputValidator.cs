@@ -20,4 +20,13 @@ public sealed record CommandValidationResult(
 public sealed record ContentAnalysisResult(
     bool IsContentNormal,
     bool HasDedicatedRule,
-    IReadOnlyList<ContentFinding> Findings);
+    IReadOnlyList<ContentFinding> Findings)
+{
+    public long ByteLength { get; init; }
+
+    public int RawLineCount { get; init; }
+
+    public bool HasVisibleContent { get; init; }
+
+    public string Preview { get; init; } = string.Empty;
+}

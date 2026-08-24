@@ -7,7 +7,32 @@ from pathlib import Path
 
 def write_valid(path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("测试第一行\r\n测试第二行\r\n", encoding="utf-8")
+    path.write_text(
+        "\r\n".join(
+            [
+                "自动测试正常样本",
+                "System CPU Using Percentage : 12%",
+                "Memory Using Percentage: 20%",
+                "Clock is synchronized, stratum 2",
+                "System software version 1.0, uptime 10 days",
+                "No active alarm",
+                "BGP Total number of peers : 0",
+                "Network routes advertised: 0",
+                "OSPF process 10, 0 Neighbors, 0 is Full",
+                "BFD neighbor Up",
+                "sysname TEST-DEVICE",
+                "Interface Eth1 AdminStatus UP OperStatus UP",
+                "fan-id 1 status ok normal",
+                "power id 1 status ok normal",
+                "Temperature current 40 C threshold 80 C",
+                "Transceiver RX Power: -5 dBm",
+                "Flash usage: 10%",
+                "Log count: 0",
+            ]
+        )
+        + "\r\n",
+        encoding="utf-8",
+    )
 
 
 def create_valid(root, devices):

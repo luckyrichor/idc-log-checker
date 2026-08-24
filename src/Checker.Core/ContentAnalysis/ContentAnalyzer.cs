@@ -15,23 +15,26 @@ public sealed class ContentAnalyzer
         var family = DeviceFamilyResolver.Resolve(deviceName, output);
         var kind = CommandClassifier.Classify(fileName);
         var context = new ContentAnalysisContext(deviceName, fileName, path, family, kind, document, output);
+        var hasVisibleContent = document.AnalysisLines.Any(line => !string.IsNullOrWhiteSpace(line.TrimStart('\uFEFF')));
+        var preview = SensitiveTextRedactor.Redact(
+            document.AnalysisLines.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line.TrimStart('\uFEFF'))) ?? string.Empty);
 
         var executionFindings = GenericExecutionRuleSet.Evaluate(context);
         if (executionFindings.Count > 0)
         {
-            return new ContentAnalysisResult(false, kind != CommandKind.Unknown, executionFindings);
+            return WithFacts(new ContentAnalysisResult(false, kind != CommandKind.Unknown, executionFindings));
         }
 
         var validation = CommandValidationRegistry.Validate(context);
         if (!validation.IsRecognized)
         {
-            return new ContentAnalysisResult(false, false, []);
+            return WithFacts(new ContentAnalysisResult(false, false, []));
         }
 
         if (!validation.IsSuccessful)
         {
             var noOutput = output.EffectiveLines.Count == 0;
-            return new ContentAnalysisResult(false, true,
+            return WithFacts(new ContentAnalysisResult(false, true,
             [
                 new ContentFinding(
                     noOutput ? "COMMAND_NO_EFFECTIVE_OUTPUT" : "COMMAND_OUTPUT_UNRECOGNIZED",
@@ -41,9 +44,40 @@ public sealed class ContentAnalyzer
                     validation.ExpectedDescription,
                     SensitiveTextRedactor.Redact(output.SafePreview),
                     "人工查看该TXT；如确认是新的正常格式，请提供样本以补充规则。")
-            ]);
+            ]));
         }
 
-        return new ContentAnalysisResult(true, true, []);
+        var semanticFindings = EvaluateSemantic(kind, output);
+        return WithFacts(new ContentAnalysisResult(semanticFindings.Count == 0, true, semanticFindings));
+
+        ContentAnalysisResult WithFacts(ContentAnalysisResult result) => result with
+        {
+            ByteLength = document.ByteLength,
+            RawLineCount = document.RawLineCount,
+            HasVisibleContent = hasVisibleContent,
+            Preview = preview,
+        };
+    }
+
+    private static IReadOnlyList<ContentFinding> EvaluateSemantic(
+        CommandKind kind,
+        NormalizedCommandOutput output)
+    {
+        var text = string.Join(Environment.NewLine, output.EffectiveLines);
+        return kind switch
+        {
+            CommandKind.Cpu => SystemStatusRules.EvaluateCpu(text),
+            CommandKind.Memory => SystemStatusRules.EvaluateMemory(text),
+            CommandKind.NtpStatus => SystemStatusRules.EvaluateNtp(text),
+            CommandKind.AlarmActive => AlarmStatusRules.Evaluate(text),
+            CommandKind.BgpSummary => RoutingStatusRules.EvaluateBgp(text),
+            CommandKind.OspfPeer => RoutingStatusRules.EvaluateOspf(text),
+            CommandKind.BfdNeighbor => RoutingStatusRules.EvaluateBfd(text),
+            CommandKind.Configuration => HardwareStatusRules.EvaluateConfiguration(text),
+            CommandKind.Fan or CommandKind.Power or CommandKind.Temperature or
+                CommandKind.Optics or CommandKind.Interface or CommandKind.Storage =>
+                HardwareStatusRules.Evaluate(kind, text),
+            _ => [],
+        };
     }
 }

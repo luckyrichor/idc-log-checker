@@ -1,10 +1,12 @@
 using IDCLogChecker.Core.Baseline;
+using IDCLogChecker.Core.ContentAnalysis;
 
 namespace IDCLogChecker.Core.Scanning;
 
 public sealed class DirectoryScanner
 {
     private readonly IReadOnlyList<BaselineDevice> _devices;
+    private readonly ContentAnalyzer _contentAnalyzer = new();
 
     public DirectoryScanner(IReadOnlyList<BaselineDevice> devices)
     {
@@ -30,6 +32,8 @@ public sealed class DirectoryScanner
         var actualDirectoryCount = 0;
         var actualTxtCount = 0;
         var checkedTxtCount = 0;
+        var contentNormalCount = 0;
+        var unsupportedContentRuleCount = 0;
 
         if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
         {
@@ -196,45 +200,82 @@ public sealed class DirectoryScanner
 
                 cancellationToken.ThrowIfCancellationRequested();
                 checkedTxtCount++;
-                var probe = TextContentProbe.ProbeAsync(file.FullName, cancellationToken)
-                    .GetAwaiter()
-                    .GetResult();
-                switch (probe.Kind)
+                ContentAnalysisResult analysis;
+                try
                 {
-                    case TextContentKind.Empty:
-                        issues.Add(new ScanIssue(
-                            IssueSeverity.Error,
-                            IssueCode.EmptyTxtFile,
-                            $"TXT 文件“{expectedFileName}”没有有效内容（0 字节、仅 BOM 或仅空白）。",
-                            device.Name,
-                            file.FullName,
-                            Expected: "至少包含一行有效内容",
-                            Actual: $"{probe.ByteLength} 字节"));
-                        break;
-                    case TextContentKind.OneLine:
-                        issues.Add(new ScanIssue(
-                            IssueSeverity.Warning,
-                            IssueCode.OneLineTxtFile,
-                            $"TXT 文件“{expectedFileName}”只有一行，请人工确认命令是否确实没有返回正文。",
-                            device.Name,
-                            file.FullName,
-                            Expected: "通常应包含两行或更多内容",
-                            Actual: probe.Preview));
-                        break;
-                    case TextContentKind.Unreadable:
-                        issues.Add(new ScanIssue(
-                            IssueSeverity.Error,
-                            IssueCode.UnreadableTxtFile,
-                            $"无法读取 TXT 文件“{expectedFileName}”：{probe.ErrorMessage}",
-                            device.Name,
-                            file.FullName,
-                            Expected: "文件可读取",
-                            Actual: probe.ErrorMessage));
-                        break;
-                    case TextContentKind.MultipleLines:
-                        break;
-                    default:
-                        throw new InvalidOperationException($"未知的文本检查结果: {probe.Kind}");
+                    analysis = _contentAnalyzer.AnalyzeAsync(
+                            device.Name, expectedFileName, file.FullName, cancellationToken)
+                        .GetAwaiter()
+                        .GetResult();
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception exception) when (exception is IOException
+                    or UnauthorizedAccessException
+                    or System.Security.SecurityException
+                    or System.Text.DecoderFallbackException)
+                {
+                    issues.Add(new ScanIssue(
+                        IssueSeverity.Error,
+                        IssueCode.UnreadableTxtFile,
+                        $"无法读取 TXT 文件“{expectedFileName}”：{exception.Message}",
+                        device.Name,
+                        file.FullName,
+                        Expected: "文件可读取",
+                        Actual: exception.Message));
+                    continue;
+                }
+
+                if (!analysis.HasVisibleContent)
+                {
+                    issues.Add(new ScanIssue(
+                        IssueSeverity.Error,
+                        IssueCode.EmptyTxtFile,
+                        $"TXT 文件“{expectedFileName}”没有有效内容（0 字节、仅 BOM 或仅空白）。",
+                        device.Name,
+                        file.FullName,
+                        Expected: "至少包含一行有效内容",
+                        Actual: $"{analysis.ByteLength} 字节"));
+                    continue;
+                }
+
+                if (analysis.RawLineCount == 1)
+                {
+                    issues.Add(new ScanIssue(
+                        IssueSeverity.Warning,
+                        IssueCode.OneLineTxtFile,
+                        $"TXT 文件“{expectedFileName}”只有一行，请人工确认命令是否确实没有返回正文。",
+                        device.Name,
+                        file.FullName,
+                        Expected: "通常应包含两行或更多内容",
+                        Actual: analysis.Preview));
+                }
+
+                if (!analysis.HasDedicatedRule)
+                {
+                    unsupportedContentRuleCount++;
+                }
+                else if (analysis.IsContentNormal)
+                {
+                    contentNormalCount++;
+                }
+
+                foreach (var finding in analysis.Findings)
+                {
+                    issues.Add(new ScanIssue(
+                        finding.Severity,
+                        finding.Code,
+                        finding.Message,
+                        device.Name,
+                        file.FullName,
+                        finding.Expected,
+                        finding.Actual)
+                    {
+                        RuleCode = finding.RuleCode,
+                        SuggestedAction = finding.SuggestedAction,
+                    });
                 }
             }
         }
@@ -257,7 +298,12 @@ public sealed class DirectoryScanner
                 actualTxtCount,
                 checkedTxtCount,
                 orderedIssues.Count(issue => issue.Severity == IssueSeverity.Error),
-                orderedIssues.Count(issue => issue.Severity == IssueSeverity.Warning));
+                orderedIssues.Count(issue => issue.Severity == IssueSeverity.Warning))
+            {
+                IndeterminateCount = orderedIssues.Count(issue => issue.Severity == IssueSeverity.Indeterminate),
+                ContentNormalCount = contentNormalCount,
+                UnsupportedContentRuleCount = unsupportedContentRuleCount,
+            };
             return new ScanResult(rootPath, startedAt, DateTimeOffset.Now, summary, orderedIssues);
         }
     }

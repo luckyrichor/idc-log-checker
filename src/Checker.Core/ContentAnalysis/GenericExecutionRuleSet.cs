@@ -34,15 +34,17 @@ public static class GenericExecutionRuleSet
     public static IReadOnlyList<ContentFinding> Evaluate(ContentAnalysisContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var directLines = context.Output.EffectiveLines.Take(16);
-        foreach (var line in directLines)
+        foreach (var line in context.Output.EffectiveLines)
         {
             foreach (var pattern in ExplicitPatterns)
             {
                 if (!line.Contains(pattern.Text, StringComparison.OrdinalIgnoreCase)) continue;
                 return [Finding(pattern, line)];
             }
+        }
 
+        foreach (var line in context.Output.EffectiveLines.Take(16))
+        {
             if (context.CommandKind is not (CommandKind.Log or CommandKind.Configuration))
             {
                 if (line.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||

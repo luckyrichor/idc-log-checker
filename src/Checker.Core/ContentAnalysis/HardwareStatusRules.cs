@@ -69,7 +69,7 @@ public static partial class HardwareStatusRules
     {
         var line = Lines(output).FirstOrDefault(item =>
             item.Contains("alarm", StringComparison.OrdinalIgnoreCase) &&
-            !item.Contains("no alarm", StringComparison.OrdinalIgnoreCase));
+            !NoAlarm().IsMatch(item));
         return line is null
             ? []
             : [Finding("OPTICAL_ABNORMAL", IssueCode.OpticalAbnormal,
@@ -127,4 +127,7 @@ public static partial class HardwareStatusRules
 
     [GeneratedRegex(@"(?i)\b(?:password\s+simple|community\s+(?:read|write)\s+\S+|secret\s+\S+)")]
     private static partial Regex PlainCredential();
+
+    [GeneratedRegex(@"(?i)\bno\s+(?:active\s+)?alarm\b")]
+    private static partial Regex NoAlarm();
 }

@@ -4,7 +4,7 @@ namespace IDCLogChecker.Core.ContentAnalysis;
 
 public static class CommandOutputReader
 {
-    private const int WindowSize = 512;
+    private const int WindowSize = 2048;
     public const int MaximumRetainedLines = WindowSize * 2;
 
     public static async Task<CommandOutputDocument> ReadAsync(

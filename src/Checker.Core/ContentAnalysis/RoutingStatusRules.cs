@@ -91,7 +91,7 @@ public static partial class RoutingStatusRules
             SensitiveTextRedactor.Redact($"状态 {state}：{line}"),
             action);
 
-    [GeneratedRegex(@"(?i)\b(Active|Idle(?:\s*\(Admin\)|\(Admin\))?|Connect|OpenSent|OpenConfirm)\b")]
+    [GeneratedRegex(@"(?i)^\s*[0-9A-Fa-f:.]+\s+.*\b(Active|Idle(?:\s*\(Admin\)|\(Admin\))?|Connect|OpenSent|OpenConfirm)\b")]
     private static partial Regex BgpState();
 
     [GeneratedRegex(@"(?i)^\s*(Active|Idle|Connect|OpenSent|OpenConfirm)\s*:\s*(\d+)\b")]
