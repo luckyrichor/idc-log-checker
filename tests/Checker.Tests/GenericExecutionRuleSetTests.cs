@@ -43,6 +43,15 @@ public sealed class GenericExecutionRuleSetTests
         Assert.Empty(GenericExecutionRuleSet.Evaluate(Context(CommandKind.Log, line)));
     }
 
+    [Fact]
+    public void HistoricalPermissionDeniedInsideLogIsNotCurrentCommandFailure()
+    {
+        var lines = Enumerable.Range(1, 10).Select(index => $"historical log {index}").ToList();
+        lines.Add("SHELL_CMDDENY: Command is permission denied.");
+
+        Assert.Empty(GenericExecutionRuleSet.Evaluate(Context(CommandKind.Log, [.. lines])));
+    }
+
     [Theory]
     [InlineData(CommandKind.Interface, "ARP type: ARPA, ARP Timeout: 3600 seconds")]
     [InlineData(CommandKind.BgpSummary, "Hold timer timeout interval: 180 seconds")]

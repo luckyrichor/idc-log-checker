@@ -34,7 +34,14 @@ public static class GenericExecutionRuleSet
     public static IReadOnlyList<ContentFinding> Evaluate(ContentAnalysisContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        foreach (var line in context.Output.EffectiveLines)
+        var explicitLines = context.CommandKind switch
+        {
+            CommandKind.BgpAdvertisedRoutes => context.Output.EffectiveLines,
+            CommandKind.Log or CommandKind.Configuration => context.Output.EffectiveLines.Take(4),
+            _ => context.Output.EffectiveLines.Take(16),
+        };
+
+        foreach (var line in explicitLines)
         {
             foreach (var pattern in ExplicitPatterns)
             {
