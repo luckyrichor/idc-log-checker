@@ -20,5 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="../../src/Checker.WinForms/IssueListAdapter.cs" Link="WinForms/IssueListAdapter.cs" />
+    <Compile Include="../../src/Checker.WinForms/BatchFormController.cs" Link="WinForms/BatchFormController.cs" />
   </ItemGroup>
 </Project>
