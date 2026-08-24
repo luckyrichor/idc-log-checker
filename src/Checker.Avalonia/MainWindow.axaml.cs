@@ -116,18 +116,29 @@ public sealed partial class MainWindow : Window
 
     private async void OnOpenLocationClick(object? sender, RoutedEventArgs e)
     {
-        if (_selectedIssue is null || string.IsNullOrWhiteSpace(_selectedIssue.Path))
+        var target = OpenLocationResolver.Resolve(_selectedIssue?.Path);
+        if (target is null)
         {
-            await ShowMessageAsync("无法打开位置", "请先选择一条包含文件或目录位置的记录。");
+            await ShowMessageAsync("无法打开位置", "没有找到可打开的位置。请确认原检查文件夹仍然存在。");
             return;
         }
 
         try
         {
-            var path = _selectedIssue.Path;
-            Process.Start(OperatingSystem.IsWindows()
-                ? new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true }
-                : new ProcessStartInfo("open", $"-R \"{path}\"") { UseShellExecute = true });
+            var startInfo = new ProcessStartInfo(OperatingSystem.IsWindows() ? "explorer.exe" : "open")
+            {
+                UseShellExecute = false,
+            };
+            if (OperatingSystem.IsWindows() && target.SelectFile)
+            {
+                startInfo.ArgumentList.Add($"/select,{target.Path}");
+            }
+            else
+            {
+                if (!OperatingSystem.IsWindows() && target.SelectFile) startInfo.ArgumentList.Add("-R");
+                startInfo.ArgumentList.Add(target.Path);
+            }
+            Process.Start(startInfo);
         }
         catch (Exception exception)
         {

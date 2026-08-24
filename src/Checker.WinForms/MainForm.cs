@@ -232,11 +232,18 @@ public partial class MainForm : Form
     {
         var index = issueGrid.CurrentRow?.Index ?? -1;
         if (index < 0 || index >= _visibleRows.Count) return;
-        var path = _visibleRows[index].Path;
-        if (string.IsNullOrWhiteSpace(path)) return;
+        var target = OpenLocationResolver.Resolve(_visibleRows[index].Path);
+        if (target is null)
+        {
+            MessageBox.Show(this, "没有找到可打开的位置。请确认原检查文件夹仍然存在。", "无法打开位置",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         try
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            var startInfo = new ProcessStartInfo("explorer.exe") { UseShellExecute = false };
+            startInfo.ArgumentList.Add(target.SelectFile ? $"/select,{target.Path}" : target.Path);
+            Process.Start(startInfo);
         }
         catch (Exception exception)
         {
