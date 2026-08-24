@@ -43,10 +43,13 @@ public sealed class RealDataVerificationTests
         Assert.Equal(3660, result.Summary.ActualTxtFileCount);
         Assert.DoesNotContain(result.Issues, IsStructuralError);
         _output.WriteLine(
-            "{0}: errors={1}, warnings={2}, empty={3}, oneLine={4}",
+            "{0}: errors={1}, indeterminate={2}, warnings={3}, contentNormal={4}, unsupported={5}, empty={6}, oneLine={7}",
             sourceName,
             result.Summary.ErrorCount,
+            result.Summary.IndeterminateCount,
             result.Summary.WarningCount,
+            result.Summary.ContentNormalCount,
+            result.Summary.UnsupportedContentRuleCount,
             result.Issues.Count(issue => issue.Code == IssueCode.EmptyTxtFile),
             result.Issues.Count(issue => issue.Code == IssueCode.OneLineTxtFile));
     }
