@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>IDCLogChecker.Tests</AssemblyName>
+    <RootNamespace>IDCLogChecker.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Checker.Core/Checker.Core.csproj" />
+    <ProjectReference Include="../../src/Checker.Avalonia/Checker.Avalonia.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Checker.WinForms/IssueListAdapter.cs" Link="WinForms/IssueListAdapter.cs" />
+    <Compile Include="../../src/Checker.WinForms/BatchFormController.cs" Link="WinForms/BatchFormController.cs" />
+  </ItemGroup>
+</Project>

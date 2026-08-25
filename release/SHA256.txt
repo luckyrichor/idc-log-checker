@@ -1,0 +1,8 @@
+设备检查工具发布文件 SHA-256
+==============================
+
+IDC日志检查工具_Avalonia.exe
+60199632694f49c133e6fad1d24907c735f0b746ff2639c851839c1b1072b95a
+
+IDC日志检查工具_WinForms.exe
+4d87ed99c080d15e760cd5b5c0e153a51bdbba47a5a8db4849a3d05a19c39da6

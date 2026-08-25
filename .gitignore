@@ -1,0 +1,14 @@
+# Local SDK/runtime and package caches
+.tools/
+
+# Build output
+**/bin/
+**/obj/
+artifacts/
+
+# Generated test output and local metadata
+test/.generated/
+test/results/
+test/test_cases_windows.zip
+.DS_Store
+._*

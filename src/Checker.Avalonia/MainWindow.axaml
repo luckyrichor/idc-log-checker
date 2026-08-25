@@ -1,0 +1,77 @@
+<Window x:Class="IDCLogChecker.Avalonia.MainWindow" x:DataType="local:MainWindowViewModel"
+ xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="using:IDCLogChecker.Avalonia" xmlns:presentation="using:IDCLogChecker.Core.Presentation"
+ Title="设备检查工具" Width="1280" Height="820" MinWidth="1060" MinHeight="700"
+ WindowStartupLocation="CenterScreen" DragDrop.AllowDrop="True" DragDrop.DragEnter="OnDragEnter"
+ DragDrop.DragLeave="OnDragLeave" DragDrop.DragOver="OnDragOver" DragDrop.Drop="OnDrop">
+ <Grid>
+  <!-- 首页 -->
+  <Grid IsVisible="{Binding IsHome}" RowDefinitions="Auto,*">
+   <Border Background="#142D48" Padding="22,17"><StackPanel Orientation="Horizontal" Spacing="12">
+    <Border Width="38" Height="38" CornerRadius="9" BorderBrush="#75CEB7" BorderThickness="2"><TextBlock Text="✓" FontSize="18" Foreground="#75CEB7" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+    <StackPanel VerticalAlignment="Center"><SelectableTextBlock Text="设备检查工具" FontSize="18" FontWeight="SemiBold" Foreground="White" /><SelectableTextBlock Text="设备目录、命令数目、执行结果，按三级顺序检查" FontSize="11" Foreground="#BDCCDA" /></StackPanel>
+   </StackPanel></Border>
+   <Grid Grid.Row="1" Margin="22,24" RowDefinitions="Auto,*">
+    <StackPanel HorizontalAlignment="Center" Spacing="5" Margin="0,0,0,15"><SelectableTextBlock Text="选择需要检查的文件夹" FontSize="22" FontWeight="SemiBold" Foreground="#193149" HorizontalAlignment="Center" /><SelectableTextBlock Text="支持一次选择多个文件夹，也可以直接拖入窗口。" Foreground="#687C8D" HorizontalAlignment="Center" /></StackPanel>
+    <Border x:Name="HomeDropZone" Grid.Row="1" Background="White" BorderBrush="#9CAEBE" BorderThickness="2" CornerRadius="12" Padding="40"><Grid><StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="13">
+     <Border Width="78" Height="58" CornerRadius="9" BorderBrush="#247460" BorderThickness="2" Background="#E5F3EF"><TextBlock Text="＋" FontSize="30" Foreground="#247460" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+     <SelectableTextBlock Text="把文件夹拖到这里" FontSize="18" FontWeight="SemiBold" Foreground="#1B374F" HorizontalAlignment="Center" />
+     <SelectableTextBlock Text="拖入多个文件夹时，程序会逐个检查并分别展示结果" Foreground="#6C8091" HorizontalAlignment="Center" />
+     <Button Classes="primary" MinWidth="230" HorizontalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Padding="16,10" Click="OnChooseFolderClick" Content="选择文件夹" />
+    </StackPanel></Grid></Border>
+   </Grid>
+  </Grid>
+
+  <!-- 检查结果页 -->
+  <Grid IsVisible="{Binding HasSelection}" RowDefinitions="Auto,*">
+   <Border Background="#142D48" Padding="22,17"><StackPanel Orientation="Horizontal" Spacing="12">
+    <Border Width="38" Height="38" CornerRadius="9" BorderBrush="#75CEB7" BorderThickness="2"><TextBlock Text="✓" FontSize="18" Foreground="#75CEB7" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+    <StackPanel VerticalAlignment="Center"><SelectableTextBlock Text="设备检查工具" FontSize="18" FontWeight="SemiBold" Foreground="White" /><SelectableTextBlock Text="设备目录、命令数目、执行结果，按三级顺序检查" FontSize="11" Foreground="#BDCCDA" /></StackPanel>
+   </StackPanel></Border>
+
+   <Grid Grid.Row="1" Margin="17,16,17,19" RowDefinitions="Auto,*" RowSpacing="12">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" MinHeight="48">
+     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left"><SelectableTextBlock Text="检查结果" FontSize="21" FontWeight="SemiBold" Foreground="#193149" HorizontalAlignment="Left" /><SelectableTextBlock Text="{Binding StatusText}" FontSize="11" Foreground="#687C8D" TextTrimming="CharacterEllipsis" MaxWidth="520" HorizontalAlignment="Left" /><ProgressBar IsVisible="{Binding IsBusy}" Height="4" Margin="0,5,0,0" Maximum="100" Value="{Binding ProgressPercent}" /></StackPanel>
+     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+      <Button BorderBrush="#D7A49E" BorderThickness="1" Background="White" Foreground="#A34037" CornerRadius="6" Padding="10,8" Click="OnClearClick" Content="清除并返回首页" />
+      <Button Classes="secondary" Padding="10,8" Click="OnAddFolderClick" Content="添加文件夹" />
+      <Button Classes="secondary" Padding="10,8" Click="OnStartScanClick" IsEnabled="{Binding CanStart}" Content="开始检查" />
+      <Button Classes="primary" Padding="12,8" Click="OnExportAllClick" IsEnabled="{Binding CanExportAll}" Content="导出数据" />
+     </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="1" ColumnDefinitions="240,*" ColumnSpacing="10" MinHeight="560">
+     <Border Classes="card" Padding="0" CornerRadius="9"><Grid RowDefinitions="Auto,*,Auto">
+      <Border Background="#E9EFF3" BorderBrush="#DBE4EA" BorderThickness="0,0,0,1" Padding="12,10"><StackPanel Spacing="2"><SelectableTextBlock Text="所选文件夹" FontWeight="SemiBold" Foreground="#2B465D" /><SelectableTextBlock Text="点击名称切换右侧结果" FontSize="11" Foreground="#738596" /></StackPanel></Border>
+      <ListBox x:Name="SelectedFolderList" Grid.Row="1" ItemsSource="{Binding SelectedFolders}" SelectionChanged="OnSelectedPathChanged" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto"><ListBox.ItemTemplate><DataTemplate x:DataType="local:SelectedFolderViewModel"><Grid Margin="8,8" Background="Transparent" ColumnDefinitions="*,Auto" ColumnSpacing="7" MinWidth="285" PointerPressed="OnSelectedFolderPointerPressed"><Grid.ContextMenu><ContextMenu><MenuItem Header="复制文件夹名" Tag="{Binding}" Click="OnCopyFolderNameClick" /><MenuItem Header="复制路径" Tag="{Binding}" Click="OnCopyFolderPathClick" /></ContextMenu></Grid.ContextMenu><StackPanel Spacing="4"><TextBlock Text="{Binding FolderName}" FontSize="12" FontWeight="SemiBold" Foreground="#1B374F" /><TextBlock Text="{Binding Path}" FontSize="11" Foreground="#6E8192" TextWrapping="NoWrap" /></StackPanel><Button Grid.Column="1" Background="Transparent" BorderThickness="0" Foreground="#A4483F" Padding="4" Click="OnRemoveFolderClick" Content="移除" /></Grid></DataTemplate></ListBox.ItemTemplate></ListBox>
+      <Border Grid.Row="2" Background="#F5F8FA" BorderBrush="#DBE4EA" BorderThickness="0,1,0,0" Padding="11,8"><SelectableTextBlock Text="{Binding SelectionSummaryText}" FontSize="11" FontWeight="SemiBold" Foreground="#536A7D" HorizontalAlignment="Right" /></Border>
+     </Grid></Border>
+
+     <Border Grid.Column="1" Classes="card" Padding="0" CornerRadius="9"><Grid RowDefinitions="Auto,Auto,*">
+      <Border Background="#F6F9FA" Padding="11"><Grid ColumnDefinitions="*,*,*" ColumnSpacing="7">
+       <Button x:Name="LevelOneButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="95" Background="White" BorderBrush="#CAD6DE" BorderThickness="1" CornerRadius="8" Padding="10" Click="OnLevelOneClick"><StackPanel HorizontalAlignment="Stretch" Spacing="9"><TextBlock Text="一级设备目录检查" FontSize="12" FontWeight="SemiBold" Foreground="#213C52" /><TextBlock Text="{Binding LevelOneText}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding LevelOneColor}" /></StackPanel></Button>
+       <Button x:Name="LevelTwoButton" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="95" Background="White" BorderBrush="#CAD6DE" BorderThickness="1" CornerRadius="8" Padding="10" Click="OnLevelTwoClick"><StackPanel HorizontalAlignment="Stretch" Spacing="9"><TextBlock Text="二级命令数目检查" FontSize="12" FontWeight="SemiBold" Foreground="#213C52" /><TextBlock Text="{Binding LevelTwoText}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding LevelTwoColor}" /></StackPanel></Button>
+       <Button x:Name="LevelThreeButton" Grid.Column="2" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" MinHeight="95" Background="White" BorderBrush="#CAD6DE" BorderThickness="1" CornerRadius="8" Padding="10" Click="OnLevelThreeClick"><StackPanel HorizontalAlignment="Stretch" Spacing="5"><TextBlock Text="三级执行结果检查" FontSize="12" FontWeight="SemiBold" Foreground="#213C52" /><TextBlock Text="{Binding LevelThreeText}" FontSize="16" FontWeight="SemiBold" Foreground="{Binding LevelThreeColor}" /><TextBlock Text="{Binding LevelThreeNote}" FontSize="11" Foreground="#76549A" TextWrapping="Wrap" /></StackPanel></Button>
+      </Grid></Border>
+      <Border Grid.Row="1" Padding="11,2,11,8"><StackPanel Orientation="Horizontal"><SelectableTextBlock Text="{Binding SelectedLevelTitle}" FontSize="12" FontWeight="SemiBold" Foreground="#2B485F" /><SelectableTextBlock Text=" · 结果明细" FontSize="12" FontWeight="SemiBold" Foreground="#2B485F" /></StackPanel></Border>
+      <Grid Grid.Row="2" Margin="11,0,11,11">
+       <DataGrid x:Name="IssueList" ItemsSource="{Binding VisibleIssues}" SelectionChanged="OnIssueSelectionChanged" Background="Transparent" AutoGenerateColumns="False" IsReadOnly="True" CanUserResizeColumns="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" HeadersVisibility="Column" GridLinesVisibility="Horizontal" BorderBrush="#D1DBE2" BorderThickness="1">
+        <DataGrid.Columns>
+         <DataGridTemplateColumn Header="状态" Width="75" MinWidth="65"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding SeverityText}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding SeverityText}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="具体类别" Width="190" MinWidth="130"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding CategoryText}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding CategoryText}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="设备目录" Width="230" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding DeviceName}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding DeviceName}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="TXT 文件" Width="250" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding FileName}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding FileName}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="说明" Width="390" MinWidth="220"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding Message}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding Message}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="实际内容" Width="320" MinWidth="180"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding Actual}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding Actual}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="完整路径" Width="450" MinWidth="230"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><Border Background="Transparent" HorizontalAlignment="Stretch"><Border.ContextMenu><ContextMenu><MenuItem Header="复制此处文字" Tag="{Binding Path}" Click="OnCopyIssueMenuTextClick" /><MenuItem Header="复制整条信息" Tag="{Binding DetailText}" Click="OnCopyIssueMenuTextClick" /></ContextMenu></Border.ContextMenu><TextBlock Text="{Binding Path}" Margin="6,3" /></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+         <DataGridTemplateColumn Header="操作" Width="145" MinWidth="130"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="presentation:IssueRow"><StackPanel Orientation="Horizontal" Spacing="2" Margin="5,3"><Button Background="White" BorderBrush="#8EB2AA" BorderThickness="1" Foreground="#176F5F" CornerRadius="6" Padding="8,5" Click="OnRowOpenLocationClick" Content="打开位置" /><Button Background="White" BorderBrush="#8EB2AA" BorderThickness="1" Foreground="#176F5F" CornerRadius="6" Padding="7,5" Content="⌄"><Button.Flyout><MenuFlyout><MenuItem Header="查看详情" Click="OnRowDetailsClick" /><MenuItem Header="复制信息" Click="OnRowCopyClick" /></MenuFlyout></Button.Flyout></Button></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+        </DataGrid.Columns>
+       </DataGrid>
+       <Border IsVisible="{Binding HasNoVisibleIssues}" BorderBrush="#D1DBE2" BorderThickness="1" Background="#FAFCFD"><SelectableTextBlock Text="{Binding LevelDetailMessage}" FontSize="14" Foreground="#65798B" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" /></Border>
+      </Grid>
+     </Grid></Border>
+    </Grid>
+   </Grid>
+  </Grid>
+ </Grid>
+</Window>
