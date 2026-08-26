@@ -260,7 +260,12 @@ public partial class MainForm : Form
     {
         var target = OpenLocationResolver.Resolve(path);
         if (target is null) { MessageBox.Show(this, "没有找到可打开的位置。请确认原检查文件夹仍然存在。", "无法打开位置", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        try { var info = new ProcessStartInfo("explorer.exe") { UseShellExecute = false }; info.ArgumentList.Add(target.SelectFile ? $"/select,{target.Path}" : target.Path); Process.Start(info); }
+        try
+        {
+            var launch = WindowsExplorerLaunch.Build(target);
+            var info = new ProcessStartInfo(launch.FileName, launch.Arguments) { UseShellExecute = true };
+            Process.Start(info);
+        }
         catch (Exception exception) { MessageBox.Show(this, exception.Message, "无法打开位置", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 

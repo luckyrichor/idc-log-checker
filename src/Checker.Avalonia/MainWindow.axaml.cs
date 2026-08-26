@@ -206,17 +206,24 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var startInfo = new ProcessStartInfo(OperatingSystem.IsWindows() ? "explorer.exe" : "open")
+            ProcessStartInfo startInfo;
+            if (OperatingSystem.IsWindows())
             {
-                UseShellExecute = false,
-            };
-            if (OperatingSystem.IsWindows() && target.SelectFile)
-            {
-                startInfo.ArgumentList.Add($"/select,{target.Path}");
+                var launch = WindowsExplorerLaunch.Build(target);
+                // explorer.exe parses its own command line and does not reliably
+                // preserve ArgumentList quoting for paths containing spaces.
+                startInfo = new ProcessStartInfo(launch.FileName, launch.Arguments)
+                {
+                    UseShellExecute = true,
+                };
             }
             else
             {
-                if (!OperatingSystem.IsWindows() && target.SelectFile) startInfo.ArgumentList.Add("-R");
+                startInfo = new ProcessStartInfo("open")
+                {
+                    UseShellExecute = false,
+                };
+                if (target.SelectFile) startInfo.ArgumentList.Add("-R");
                 startInfo.ArgumentList.Add(target.Path);
             }
             Process.Start(startInfo);
