@@ -10,6 +10,44 @@ namespace IDCLogChecker.Tests;
 public sealed class BatchFormControllerTests
 {
     [Fact]
+    public async Task LevelRowsExposeOnlyErrorsForTheSelectedLayer()
+    {
+        using var fixture = new TestDirectory();
+        fixture.CreateDirectory("logs/Extra-Device");
+        var controller = new BatchFormController(new BatchScanCoordinator(new DirectoryScanner([])));
+        controller.ReplaceSelection([Path.Combine(fixture.Path, "logs")]);
+        await controller.RunAsync();
+
+        var summary = controller.GetLevelSummary(InspectionLevel.DeviceDirectories);
+        var rows = controller.BuildIssueRows(InspectionLevel.DeviceDirectories);
+
+        Assert.Equal("1 个错误", summary.CardText);
+        Assert.Single(rows);
+        Assert.Equal("错误", rows[0].SeverityText);
+        Assert.Empty(controller.BuildIssueRows(InspectionLevel.ExecutionResults));
+    }
+
+    [Fact]
+    public void AddRemoveAndClearSelectionSupportTheResultsPageWorkflow()
+    {
+        using var fixture = new TestDirectory();
+        var first = fixture.CreateDirectory("first");
+        var second = fixture.CreateDirectory("second");
+        var controller = Controller();
+
+        Assert.True(controller.ReplaceSelection([first]));
+        Assert.True(controller.AddSelection([first, second]));
+        Assert.Equal([first, second], controller.SelectedPaths);
+        Assert.True(controller.RemoveSelection(first));
+        Assert.Equal([second], controller.SelectedPaths);
+
+        controller.ClearSelection();
+        Assert.Empty(controller.SelectedPaths);
+        Assert.False(controller.CanStart);
+        Assert.Equal("尚未选择文件夹", controller.SelectionSummaryText);
+    }
+
+    [Fact]
     public void ValidSelectionReplacesOldBatchButWhollyInvalidSelectionDoesNot()
     {
         using var fixture = new TestDirectory();

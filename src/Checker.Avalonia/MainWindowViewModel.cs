@@ -16,7 +16,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private FolderResultViewModel? _selectedFolder;
     private string _selectionSummaryText = "尚未选择文件夹";
     private string _inputNoticeText = "可选择或拖入一个或多个文件夹";
-    private string _statusText = "请选择需要检查的日志文件夹";
+    private string _statusText = "请选择需要检查的文件夹";
     private string _conclusion = "尚未开始检查";
     private string _statusColor = "#60758A";
     private string _directoryCountText = "—";
@@ -34,6 +34,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private bool _isBusy;
     private bool _hasResult;
     private double _progressPercent;
+    private InspectionLevel _selectedLevel = InspectionLevel.ExecutionResults;
+    private string _levelOneText = "—";
+    private string _levelTwoText = "—";
+    private string _levelThreeText = "—";
+    private string _selectedLevelTitle = "三级执行结果检查";
+    private string _levelDetailMessage = "完成检查后显示结果。";
+    private string _levelThreeNote = string.Empty;
+    private string _levelOneColor = "#60758A";
+    private string _levelTwoColor = "#60758A";
+    private string _levelThreeColor = "#60758A";
+    private string _selectedCategory = string.Empty;
 
     public MainWindowViewModel() : this(BatchScanCoordinator.CreateDefault()) { }
     public MainWindowViewModel(DirectoryScanner scanner) : this(new BatchScanCoordinator(scanner)) { }
@@ -42,7 +53,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public ObservableCollection<FolderResultViewModel> FolderResults { get; } = [];
+    public ObservableCollection<SelectedFolderViewModel> SelectedFolders { get; } = [];
     public ObservableCollection<IssueRow> VisibleIssues { get; } = [];
+    public ObservableCollection<IssueCategoryOption> CategoryFilters { get; } = [];
     public IReadOnlyList<string> SelectedPaths => _input.ValidPaths;
     public BatchScanResult? CurrentBatchResult => _batchPresentation?.Result;
     public ScanResult? CurrentResult => _currentPresentation?.Result;
@@ -85,6 +98,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public string WarningFolderCountText { get => _warningFolderCountText; private set => SetField(ref _warningFolderCountText, value); }
     public string FailedFolderCountText { get => _failedFolderCountText; private set => SetField(ref _failedFolderCountText, value); }
     public double ProgressPercent { get => _progressPercent; private set => SetField(ref _progressPercent, value); }
+    public string LevelOneText { get => _levelOneText; private set => SetField(ref _levelOneText, value); }
+    public string LevelTwoText { get => _levelTwoText; private set => SetField(ref _levelTwoText, value); }
+    public string LevelThreeText { get => _levelThreeText; private set => SetField(ref _levelThreeText, value); }
+    public string SelectedLevelTitle { get => _selectedLevelTitle; private set => SetField(ref _selectedLevelTitle, value); }
+    public string LevelDetailMessage { get => _levelDetailMessage; private set => SetField(ref _levelDetailMessage, value); }
+    public string LevelThreeNote { get => _levelThreeNote; private set => SetField(ref _levelThreeNote, value); }
+    public string LevelOneColor { get => _levelOneColor; private set => SetField(ref _levelOneColor, value); }
+    public string LevelTwoColor { get => _levelTwoColor; private set => SetField(ref _levelTwoColor, value); }
+    public string LevelThreeColor { get => _levelThreeColor; private set => SetField(ref _levelThreeColor, value); }
 
     public bool IsBusy
     {
@@ -99,6 +121,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public bool CanStart => !IsBusy && _input.HasValidPaths;
+    public bool HasSelection => _input.HasValidPaths;
+    public bool IsHome => !_input.HasValidPaths;
+    public bool HasVisibleIssues => VisibleIssues.Count > 0;
+    public bool HasNoVisibleIssues => !HasVisibleIssues;
     public bool CanExportAll => HasResult && !IsBusy;
     public bool CanExportCurrent => CanExportAll && SelectedFolder is not null;
     public bool CanExport => CanExportCurrent;
@@ -114,15 +140,65 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
 
         _input = normalized;
+        RefreshSelectedFolders();
         SelectionSummaryText = $"已选择 {_input.ValidPaths.Count} 个文件夹";
         InputNoticeText = string.IsNullOrEmpty(_input.NoticeText)
-            ? "已准备好，点击“开始检查”"
+            ? "已准备好，点击“开始检查”开始"
             : _input.NoticeText;
         ResetResults();
         OnPropertyChanged(nameof(SelectedPaths));
         OnPropertyChanged(nameof(SelectedPath));
         RaiseCapabilities();
         return true;
+    }
+
+    public bool AddSelection(IEnumerable<string?> paths)
+    {
+        if (IsBusy) return false;
+        var additions = BatchInputNormalizer.Normalize(paths);
+        if (!additions.HasValidPaths)
+        {
+            InputNoticeText = BuildRejectedNotice(additions);
+            return false;
+        }
+
+        var combined = BatchInputNormalizer.Normalize(_input.ValidPaths.Concat(additions.ValidPaths));
+        _input = new BatchInputResult(combined.ValidPaths, additions.SkippedItems, combined.DuplicatePaths.Concat(additions.DuplicatePaths).ToArray());
+        RefreshSelectedFolders();
+        SelectionSummaryText = $"已选择 {_input.ValidPaths.Count} 个文件夹";
+        InputNoticeText = string.IsNullOrEmpty(additions.NoticeText) ? "文件夹已添加" : additions.NoticeText;
+        ResetResults();
+        OnPropertyChanged(nameof(SelectedPaths));
+        RaiseCapabilities();
+        return true;
+    }
+
+    public bool RemoveSelection(string path)
+    {
+        if (IsBusy) return false;
+        var remaining = _input.ValidPaths.Where(item => !PathEquals(item, path)).ToArray();
+        if (remaining.Length == _input.ValidPaths.Count) return false;
+        _input = new BatchInputResult(remaining, [], []);
+        RefreshSelectedFolders();
+        SelectionSummaryText = remaining.Length == 0 ? "尚未选择文件夹" : $"已选择 {remaining.Length} 个文件夹";
+        InputNoticeText = remaining.Length == 0 ? "可选择或拖入一个或多个文件夹" : "已移除所选文件夹";
+        ResetResults();
+        OnPropertyChanged(nameof(SelectedPaths));
+        RaiseCapabilities();
+        return true;
+    }
+
+    public void ClearSelection()
+    {
+        if (IsBusy) return;
+        _input = new BatchInputResult([], [], []);
+        SelectedFolders.Clear();
+        SelectionSummaryText = "尚未选择文件夹";
+        InputNoticeText = "可选择或拖入一个或多个文件夹";
+        ResetResults();
+        StatusText = "请选择需要检查的文件夹";
+        OnPropertyChanged(nameof(SelectedPaths));
+        RaiseCapabilities();
     }
 
     public Task RunScanAsync(CancellationToken cancellationToken = default) => RunBatchScanAsync(cancellationToken);
@@ -184,6 +260,62 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         foreach (var row in _currentPresentation.Filter(filter)) VisibleIssues.Add(row);
     }
 
+    public void ApplyCategoryFilter(string category)
+    {
+        _selectedCategory = category ?? string.Empty;
+        foreach (var option in CategoryFilters)
+            option.IsSelected = string.Equals(option.CategoryText, _selectedCategory, StringComparison.Ordinal);
+        RefreshVisibleIssues();
+    }
+
+    public void SelectLevel(InspectionLevel level)
+    {
+        _selectedLevel = level;
+        VisibleIssues.Clear();
+        if (_currentPresentation is null)
+        {
+            SelectedLevelTitle = level switch
+            {
+                InspectionLevel.DeviceDirectories => "一级设备目录检查",
+                InspectionLevel.CommandFiles => "二级命令数目检查",
+                _ => "三级执行结果检查",
+            };
+            LevelDetailMessage = "完成检查后显示结果。";
+            return;
+        }
+
+        var summary = _currentPresentation.LevelSummary(level);
+        SelectedLevelTitle = summary.Title;
+        LevelDetailMessage = summary.DetailMessage;
+        BuildCategoryFilters(level);
+        RefreshVisibleIssues();
+        OnPropertyChanged(nameof(HasVisibleIssues));
+        OnPropertyChanged(nameof(HasNoVisibleIssues));
+    }
+
+    private void BuildCategoryFilters(InspectionLevel level)
+    {
+        CategoryFilters.Clear();
+        var rows = _currentPresentation?.ErrorsFor(level) ?? [];
+        CategoryFilters.Add(new IssueCategoryOption("全部错误", rows.Count, true));
+        foreach (var item in _currentPresentation?.ErrorCategoriesFor(level) ?? [])
+            CategoryFilters.Add(new IssueCategoryOption(item.CategoryText, item.Count));
+        _selectedCategory = "全部错误";
+        CategoryFilters[0].IsSelected = true;
+    }
+
+    private void RefreshVisibleIssues()
+    {
+        VisibleIssues.Clear();
+        if (_currentPresentation is null) return;
+        var rows = _currentPresentation.ErrorsFor(_selectedLevel);
+        if (!string.IsNullOrEmpty(_selectedCategory) && _selectedCategory != "全部错误")
+            rows = rows.Where(row => string.Equals(row.CategoryText, _selectedCategory, StringComparison.Ordinal)).ToArray();
+        foreach (var row in rows) VisibleIssues.Add(row);
+        OnPropertyChanged(nameof(HasVisibleIssues));
+        OnPropertyChanged(nameof(HasNoVisibleIssues));
+    }
+
     private void PresentSelectedFolder()
     {
         _currentPresentation = SelectedFolder?.Presentation.Detail;
@@ -199,6 +331,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ContentNormalCountText = "0";
             UnsupportedContentRuleCountText = "0";
             VisibleIssues.Clear();
+            CategoryFilters.Clear();
             return;
         }
 
@@ -212,7 +345,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         WarningCountText = result.Summary.WarningCount.ToString();
         ContentNormalCountText = result.Summary.ContentNormalCount.ToString();
         UnsupportedContentRuleCountText = result.Summary.UnsupportedContentRuleCount.ToString();
-        ApplyFilter(IssueFilter.All);
+        var levelOne = _currentPresentation.LevelSummary(InspectionLevel.DeviceDirectories);
+        var levelTwo = _currentPresentation.LevelSummary(InspectionLevel.CommandFiles);
+        var levelThree = _currentPresentation.LevelSummary(InspectionLevel.ExecutionResults);
+        LevelOneText = levelOne.CardText;
+        LevelTwoText = levelTwo.CardText;
+        LevelThreeText = levelThree.CardText;
+        LevelThreeNote = levelThree.DetailMessage;
+        LevelOneColor = levelOne.ErrorCount > 0 ? "#B94339" : "#16715F";
+        LevelTwoColor = levelTwo.ErrorCount > 0 ? "#B94339" : "#16715F";
+        LevelThreeColor = levelThree.ErrorCount > 0 ? "#B94339" : "#16715F";
+        SelectLevel(_selectedLevel);
     }
 
     private void ResetResults()
@@ -236,10 +379,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         UnsupportedContentRuleCountText = "0";
         Conclusion = "等待开始检查";
         StatusColor = "#60758A";
-        StatusText = "已选择文件夹，点击“开始检查”";
+        StatusText = "已选择文件夹，点击“开始检查”开始";
         ProgressPercent = 0;
         VisibleIssues.Clear();
+        CategoryFilters.Clear();
+        LevelOneText = LevelTwoText = LevelThreeText = "—";
+        SelectedLevelTitle = "三级执行结果检查";
+        LevelDetailMessage = "完成检查后显示结果。";
+        LevelThreeNote = string.Empty;
+        LevelOneColor = LevelTwoColor = LevelThreeColor = "#60758A";
     }
+
+    private void RefreshSelectedFolders()
+    {
+        SelectedFolders.Clear();
+        foreach (var path in _input.ValidPaths) SelectedFolders.Add(new SelectedFolderViewModel(path));
+    }
+
+    private static bool PathEquals(string left, string right) => string.Equals(
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static string BuildRejectedNotice(BatchInputResult result)
     {
@@ -255,6 +415,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanExport));
         OnPropertyChanged(nameof(CanExportAll));
         OnPropertyChanged(nameof(CanExportCurrent));
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(IsHome));
+        OnPropertyChanged(nameof(HasVisibleIssues));
+        OnPropertyChanged(nameof(HasNoVisibleIssues));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

@@ -52,6 +52,24 @@ public sealed class DirectoryStructureTests
         Assert.DoesNotContain(result.Issues, item => item.Code == IssueCode.ExtraDirectory);
     }
 
+    [Fact]
+    public async Task CaseMismatchedDeviceDirectoryIsNeverEnteredForLaterChecks()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("device-a/one.txt", "prompt\n% Unrecognized command found at '^' position.");
+        fixture.WriteFile("device-a/two.txt", "prompt\n% Unrecognized command found at '^' position.");
+        fixture.WriteFile("Device-B/status.txt", "prompt\nnormal output");
+        var scanner = CreateScanner();
+
+        var result = await scanner.ScanAsync(fixture.Path);
+
+        Assert.Contains(result.Issues, item => item.Code == IssueCode.DirectoryCaseMismatch);
+        Assert.DoesNotContain(result.Issues, item => item.Code == IssueCode.CommandUnrecognized);
+        Assert.DoesNotContain(result.Issues, item =>
+            string.Equals(item.DeviceName, "Device-A", StringComparison.Ordinal) &&
+            item.Code is IssueCode.MissingTxtFile or IssueCode.ExtraTxtFile);
+    }
+
     private static DirectoryScanner CreateScanner() => new(
     [
         new BaselineDevice("Device-A", ["one.txt", "two.txt"]),
@@ -67,4 +85,3 @@ public sealed class DirectoryStructureTests
         return fixture;
     }
 }
-

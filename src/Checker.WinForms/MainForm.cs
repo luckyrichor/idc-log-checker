@@ -9,326 +9,337 @@ public partial class MainForm : Form
 {
     private readonly BatchFormController _controller = new(BatchScanCoordinator.CreateDefault());
     private IReadOnlyList<IssueListRow> _visibleRows = [];
+    private InspectionLevel _selectedLevel = InspectionLevel.ExecutionResults;
+    private int _operationRowIndex = -1;
+    private int _selectedFolderCopyRowIndex = -1;
+    private int _issueCopyRowIndex = -1;
+    private int _issueCopyColumnIndex = -1;
+    private string _selectedCategory = "全部错误";
 
     public MainForm()
     {
         InitializeComponent();
-        ApplyIdleState();
+        EnableLabelCopyMenus(this);
+        ConfigureCopyMenus();
+        ShowHome();
     }
 
-    private void ChooseFolderButton_Click(object? sender, EventArgs e)
+    private static void CopyToClipboard(string? text)
+    {
+        if (!string.IsNullOrEmpty(text)) Clipboard.SetText(text);
+    }
+
+    private static void EnableLabelCopyMenus(Control root)
+    {
+        foreach (Control control in root.Controls)
+        {
+            if (control is Label label)
+            {
+                var menu = new ContextMenuStrip();
+                menu.Items.Add("复制文字", null, (_, _) => CopyToClipboard(label.Text));
+                label.ContextMenuStrip = menu;
+            }
+            EnableLabelCopyMenus(control);
+        }
+    }
+
+    private void ConfigureCopyMenus()
+    {
+        selectedFolderGrid.ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableWithoutHeaderText;
+        var folderMenu = new ContextMenuStrip();
+        folderMenu.Items.Add("复制文件夹名", null, (_, _) => CopySelectedFolderCell("Folder"));
+        folderMenu.Items.Add("复制路径", null, (_, _) => CopySelectedFolderCell("Path"));
+        selectedFolderGrid.ContextMenuStrip = folderMenu;
+        selectedFolderGrid.CellMouseDown += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right || e.RowIndex < 0) return;
+            _selectedFolderCopyRowIndex = e.RowIndex;
+            selectedFolderGrid.ClearSelection();
+            selectedFolderGrid.Rows[e.RowIndex].Selected = true;
+            selectedFolderGrid.CurrentCell = selectedFolderGrid.Rows[e.RowIndex].Cells[Math.Max(0, e.ColumnIndex)];
+        };
+
+        issueGrid.ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableWithoutHeaderText;
+        var issueCopyMenu = new ContextMenuStrip();
+        issueCopyMenu.Items.Add("复制此处文字", null, (_, _) =>
+        {
+            if (_issueCopyRowIndex >= 0 && _issueCopyColumnIndex >= 0)
+                CopyToClipboard(issueGrid.Rows[_issueCopyRowIndex].Cells[_issueCopyColumnIndex].Value?.ToString());
+        });
+        issueCopyMenu.Items.Add("复制整条信息", null, (_, _) =>
+        {
+            if (_issueCopyRowIndex >= 0 && _issueCopyRowIndex < _visibleRows.Count)
+                CopyToClipboard(_visibleRows[_issueCopyRowIndex].DetailText);
+        });
+        issueGrid.ContextMenuStrip = issueCopyMenu;
+        issueGrid.CellMouseDown += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Right || e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            _issueCopyRowIndex = e.RowIndex;
+            _issueCopyColumnIndex = e.ColumnIndex;
+            issueGrid.CurrentCell = issueGrid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+        };
+    }
+
+    private void CopySelectedFolderCell(string columnName)
+    {
+        if (_selectedFolderCopyRowIndex < 0 || _selectedFolderCopyRowIndex >= selectedFolderGrid.Rows.Count) return;
+        CopyToClipboard(selectedFolderGrid.Rows[_selectedFolderCopyRowIndex].Cells[columnName].Value?.ToString());
+    }
+
+    private void HomeChooseButton_Click(object? sender, EventArgs e) => ChooseFolders(false);
+    private void AddFolderButton_Click(object? sender, EventArgs e) => ChooseFolders(true);
+
+    private void ChooseFolders(bool append)
     {
         try
         {
             var paths = NativeMultiFolderPicker.Show(Handle);
-            if (paths.Count > 0) AcceptSelection(paths);
+            if (paths.Count > 0) AcceptSelection(paths, append);
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, $"无法打开文件夹选择窗口：\r\n{exception.Message}", "选择失败",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, $"无法打开文件夹选择窗口：\r\n{exception.Message}", "选择失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
     private void MainForm_DragEnter(object? sender, DragEventArgs e) => UpdateDragState(e);
     private void MainForm_DragOver(object? sender, DragEventArgs e) => UpdateDragState(e);
-
-    private void MainForm_DragLeave(object? sender, EventArgs e)
-    {
-        inputPanel.BackColor = Color.White;
-        inputPanel.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
-    }
+    private void MainForm_DragLeave(object? sender, EventArgs e) { homeDropPanel.BackColor = Color.FromArgb(247, 250, 252); }
 
     private void MainForm_DragDrop(object? sender, DragEventArgs e)
     {
         MainForm_DragLeave(sender, EventArgs.Empty);
-        if (e.Data?.GetData(DataFormats.FileDrop) is string[] paths) AcceptSelection(paths);
+        if (e.Data?.GetData(DataFormats.FileDrop) is string[] paths) AcceptSelection(paths, _controller.SelectedPaths.Count > 0);
     }
 
     private void UpdateDragState(DragEventArgs e)
     {
         var accepted = e.Data?.GetDataPresent(DataFormats.FileDrop) == true;
         e.Effect = accepted ? DragDropEffects.Copy : DragDropEffects.None;
-        inputPanel.BackColor = accepted ? Color.FromArgb(234, 246, 252) : Color.FromArgb(253, 237, 236);
-        inputPanel.CellBorderStyle = TableLayoutPanelCellBorderStyle.Single;
+        homeDropPanel.BackColor = accepted ? Color.FromArgb(234, 246, 252) : Color.FromArgb(253, 237, 236);
     }
 
-    private void AcceptSelection(IEnumerable<string?> paths)
+    private void AcceptSelection(IEnumerable<string?> paths, bool append)
     {
-        if (!_controller.ReplaceSelection(paths))
+        var accepted = append ? _controller.AddSelection(paths) : _controller.ReplaceSelection(paths);
+        if (!accepted)
         {
-            MessageBox.Show(this, _controller.InputNoticeText, "没有有效文件夹",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, _controller.InputNoticeText, "没有有效文件夹", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
+        ShowResults();
+        RenderSelectedFolders();
+        ResetScanResult();
+    }
 
-        selectionSummaryLabel.Text = _controller.SelectionSummaryText;
-        inputNoticeLabel.Text = _controller.InputNoticeText;
-        totalValueLabel.Text = _controller.SelectedPaths.Count.ToString();
-        cleanValueLabel.Text = "0";
-        batchIndeterminateValueLabel.Text = "0";
-        batchWarningValueLabel.Text = "0";
-        failedValueLabel.Text = "0";
-        folderGrid.Rows.Clear();
+    private void ClearButton_Click(object? sender, EventArgs e)
+    {
+        _controller.ClearSelection();
+        selectedFolderGrid.Rows.Clear();
         issueGrid.Rows.Clear();
-        ApplyCurrentFolder(null);
-        exportAllButton.Enabled = false;
-        exportCurrentButton.Enabled = false;
-        startButton.Enabled = true;
-        statusLabel.Text = "已选择文件夹，点击“开始检查”";
-        progressBar.Value = 0;
+        ShowHome();
+    }
+
+    private void SelectedFolderGrid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (e.RowIndex < 0 || selectedFolderGrid.Columns[e.ColumnIndex].Name != "Remove") return;
+        var path = selectedFolderGrid.Rows[e.RowIndex].Tag as string;
+        if (path is null || !_controller.RemoveSelection(path)) return;
+        if (_controller.SelectedPaths.Count == 0) ShowHome();
+        else { RenderSelectedFolders(); ResetScanResult(); }
     }
 
     private async void StartButton_Click(object? sender, EventArgs e)
     {
-        if (!_controller.CanStart)
-        {
-            MessageBox.Show(this, "请先选择需要检查的文件夹。", "尚未选择文件夹",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
+        if (!_controller.CanStart) return;
         SetBusy(true);
         try
         {
             var progress = new Progress<BatchScanProgress>(item =>
             {
-                var inner = item.DirectoryProgress is { TotalDirectories: > 0 } directory
-                    ? directory.CompletedDirectories / (double)directory.TotalDirectories
-                    : 0;
-                progressBar.Value = Math.Clamp(
-                    (int)Math.Round((item.CompletedFolders + inner) * 100 / item.TotalFolders), 0, 100);
-                statusLabel.Text = item.CompletedFolders >= item.TotalFolders
-                    ? "全部文件夹检查完成"
-                    : $"正在检查第 {item.FolderIndex}/{item.TotalFolders} 个：{Path.GetFileName(item.FolderPath)}";
+                var inner = item.DirectoryProgress is { TotalDirectories: > 0 } directory ? directory.CompletedDirectories / (double)directory.TotalDirectories : 0;
+                progressBar.Value = Math.Clamp((int)Math.Round((item.CompletedFolders + inner) * 100 / item.TotalFolders), 0, 100);
+                statusLabel.Text = item.CompletedFolders >= item.TotalFolders ? "全部文件夹检查完成" : $"正在检查第 {item.FolderIndex}/{item.TotalFolders} 个：{Path.GetFileName(item.FolderPath)}";
             });
             await _controller.RunAsync(progress);
-            RenderBatchResult();
+            progressBar.Value = 100;
+            statusLabel.Text = "全部文件夹检查完成，请在左侧选择文件夹，再查看相应级别的结果";
+            exportButton.Enabled = true;
+            if (_controller.SelectedFolderIndex >= 0)
+            {
+                selectedFolderGrid.ClearSelection();
+                selectedFolderGrid.Rows[_controller.SelectedFolderIndex].Selected = true;
+                selectedFolderGrid.CurrentCell = selectedFolderGrid.Rows[_controller.SelectedFolderIndex].Cells[0];
+            }
+            RenderCurrentFolder();
         }
         catch (Exception exception)
         {
-            MessageBox.Show(this, $"程序无法完成批量检查：\r\n{exception.Message}", "检查未完成",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, $"程序无法完成检查：\r\n{exception.Message}", "检查未完成", MessageBoxButtons.OK, MessageBoxIcon.Error);
             statusLabel.Text = "检查未完成，请查看说明后重试";
         }
-        finally
-        {
-            SetBusy(false);
-        }
+        finally { SetBusy(false); }
     }
 
-    private void RenderBatchResult()
+    private void SelectedFolderGrid_SelectionChanged(object? sender, EventArgs e)
     {
-        var summary = _controller.Summary!;
-        totalValueLabel.Text = summary.TotalCount.ToString();
-        cleanValueLabel.Text = summary.CleanCount.ToString();
-        batchIndeterminateValueLabel.Text = summary.IndeterminateCount.ToString();
-        batchWarningValueLabel.Text = summary.WarningCount.ToString();
-        failedValueLabel.Text = summary.FailedCount.ToString();
-        folderGrid.Rows.Clear();
-        foreach (var folder in _controller.FolderRows)
-        {
-            var rowIndex = folderGrid.Rows.Add(
-                folder.FolderName,
-                folder.StatusText,
-                folder.ErrorCount,
-                folder.IndeterminateCount,
-                folder.WarningCount,
-                folder.Path);
-            var row = folderGrid.Rows[rowIndex];
-            row.Tag = folder.Path;
-            foreach (DataGridViewCell cell in row.Cells) cell.ToolTipText = cell.Value?.ToString() ?? string.Empty;
-            row.Cells[1].Style.ForeColor = ColorTranslator.FromHtml(folder.StatusColor);
-            row.Cells[1].Style.Font = new Font(folderGrid.Font, FontStyle.Bold);
-        }
-
-        progressBar.Value = 100;
-        statusLabel.Text = "全部文件夹检查完成，可在左侧切换查看结果";
-        exportAllButton.Enabled = true;
-        if (_controller.SelectedFolderIndex >= 0)
-        {
-            folderGrid.ClearSelection();
-            folderGrid.Rows[_controller.SelectedFolderIndex].Selected = true;
-            folderGrid.CurrentCell = folderGrid.Rows[_controller.SelectedFolderIndex].Cells[0];
-            RenderCurrentFolder();
-        }
-    }
-
-    private void FolderGrid_SelectionChanged(object? sender, EventArgs e)
-    {
-        var index = folderGrid.CurrentRow?.Index ?? -1;
+        if (_controller.BatchResult is null) return;
+        var index = selectedFolderGrid.CurrentRow?.Index ?? -1;
         if (_controller.SelectFolder(index)) RenderCurrentFolder();
+    }
+
+    private void LevelOneButton_Click(object? sender, EventArgs e) => SelectLevel(InspectionLevel.DeviceDirectories);
+    private void LevelTwoButton_Click(object? sender, EventArgs e) => SelectLevel(InspectionLevel.CommandFiles);
+    private void LevelThreeButton_Click(object? sender, EventArgs e) => SelectLevel(InspectionLevel.ExecutionResults);
+
+    private void SelectLevel(InspectionLevel level)
+    {
+        _selectedLevel = level;
+        if (_controller.CurrentFolder is null) { ShowRows([]); return; }
+        var summary = _controller.GetLevelSummary(level);
+        detailTitleLabel.Text = summary.Title + " · 结果明细";
+        levelMessageLabel.Text = summary.DetailMessage;
+        RenderCategoryFilters(level);
+        ShowRows(_controller.BuildIssueRows(level));
+        foreach (var button in new[] { levelOneButton, levelTwoButton, levelThreeButton })
+        {
+            button.BackColor = Color.White;
+            button.FlatAppearance.BorderColor = Color.FromArgb(202, 214, 222);
+            button.FlatAppearance.BorderSize = 1;
+        }
+        var selectedButton = level switch { InspectionLevel.DeviceDirectories => levelOneButton, InspectionLevel.CommandFiles => levelTwoButton, _ => levelThreeButton };
+        selectedButton.BackColor = Color.FromArgb(247, 252, 250);
+        selectedButton.FlatAppearance.BorderColor = Color.FromArgb(25, 115, 95);
+        selectedButton.FlatAppearance.BorderSize = 2;
+    }
+
+    private void RenderCategoryFilters(InspectionLevel level)
+    {
+        categoryPanel.Controls.Clear();
+        _selectedCategory = "全部错误";
+        AddCategoryButton("全部错误", _controller.GetErrorCount(level), true, level);
+        foreach (var item in _controller.GetErrorCategories(level))
+            AddCategoryButton(item.CategoryText, item.Count, false, level);
+    }
+
+    private void AddCategoryButton(string category, int count, bool all, InspectionLevel level)
+    {
+        var button = new Button
+        {
+            Text = $"{category} {count}",
+            AutoSize = true,
+            Height = 48,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(248, 250, 252),
+            ForeColor = all ? Color.FromArgb(185, 67, 57) : Color.FromArgb(83, 106, 125),
+            Padding = new Padding(12, 4, 12, 4),
+            Margin = new Padding(0, 0, 8, 0),
+            Tag = (category, level),
+            Font = new Font(Font, FontStyle.Bold),
+        };
+        button.FlatAppearance.BorderSize = 2;
+        button.FlatAppearance.BorderColor = all ? Color.FromArgb(192, 57, 43) : Color.FromArgb(202, 214, 222);
+        button.Click += CategoryButton_Click;
+        categoryPanel.Controls.Add(button);
+    }
+
+    private void CategoryButton_Click(object? sender, EventArgs e)
+    {
+        if (sender is not Button { Tag: ValueTuple<string, InspectionLevel> tag }) return;
+        _selectedCategory = tag.Item1;
+        foreach (Button button in categoryPanel.Controls)
+        {
+            var selected = button == sender;
+            button.FlatAppearance.BorderColor = selected ? Color.FromArgb(192, 57, 43) : Color.FromArgb(202, 214, 222);
+            button.ForeColor = selected ? Color.FromArgb(185, 67, 57) : Color.FromArgb(83, 106, 125);
+        }
+        var rows = _controller.BuildIssueRows(tag.Item2);
+        ShowRows(_selectedCategory == "全部错误" ? rows : rows.Where(row => row.CategoryText == _selectedCategory).ToArray());
     }
 
     private void RenderCurrentFolder()
     {
-        var folder = _controller.CurrentFolder;
-        if (folder is null)
-        {
-            ApplyCurrentFolder(null);
-            return;
-        }
-
-        var result = folder.Detail.Result;
-        currentConclusionLabel.Text = folder.Detail.Conclusion;
-        currentConclusionLabel.ForeColor = ColorTranslator.FromHtml(folder.StatusColor);
-        currentPathLabel.Text = folder.Path;
-        directoriesValueLabel.Text = $"{result.Summary.ActualDirectoryCount} / {result.Summary.ExpectedDirectoryCount}";
-        txtValueLabel.Text = $"{result.Summary.ActualTxtFileCount} / {result.Summary.ExpectedTxtFileCount}";
-        errorsValueLabel.Text = result.Summary.ErrorCount.ToString();
-        indeterminateValueLabel.Text = result.Summary.IndeterminateCount.ToString();
-        warningsValueLabel.Text = result.Summary.WarningCount.ToString();
-        contentNormalValueLabel.Text = result.Summary.ContentNormalCount.ToString();
-        unsupportedRuleValueLabel.Text = result.Summary.UnsupportedContentRuleCount.ToString();
-        exportCurrentButton.Enabled = true;
-        ShowRows(IssueFilter.All);
+        if (_controller.CurrentFolder is null) return;
+        levelOneButton.Text = "一级设备目录检查\r\n" + _controller.GetLevelSummary(InspectionLevel.DeviceDirectories).CardText;
+        levelTwoButton.Text = "二级命令数目检查\r\n" + _controller.GetLevelSummary(InspectionLevel.CommandFiles).CardText;
+        var levelThree = _controller.GetLevelSummary(InspectionLevel.ExecutionResults);
+        levelThreeButton.Text = "三级执行结果检查\r\n" + levelThree.CardText + "\r\n" + levelThree.DetailMessage;
+        RenderCategoryFilters(_selectedLevel);
+        SelectLevel(_selectedLevel);
     }
 
-    private void ApplyCurrentFolder(object? unused)
+    private void ShowRows(IReadOnlyList<IssueListRow> rows)
     {
-        currentConclusionLabel.Text = "尚未选择检查结果";
-        currentConclusionLabel.ForeColor = Color.FromArgb(96, 117, 138);
-        currentPathLabel.Text = "—";
-        directoriesValueLabel.Text = "—";
-        txtValueLabel.Text = "—";
-        errorsValueLabel.Text = "0";
-        indeterminateValueLabel.Text = "0";
-        warningsValueLabel.Text = "0";
-        contentNormalValueLabel.Text = "0";
-        unsupportedRuleValueLabel.Text = "0";
-        detailTextBox.Text = "选择一条明细，可在这里查看完整说明。";
-        exportCurrentButton.Enabled = false;
-        copyButton.Enabled = false;
-        openLocationButton.Enabled = false;
-    }
-
-    private void FilterButton_Click(object? sender, EventArgs e) => ShowRows(sender == errorsButton
-        ? IssueFilter.Errors
-        : sender == indeterminateButton ? IssueFilter.Indeterminate
-        : sender == warningsButton ? IssueFilter.Warnings : IssueFilter.All);
-
-    private void ShowRows(IssueFilter filter)
-    {
+        _visibleRows = rows;
         issueGrid.Rows.Clear();
-        detailTextBox.Text = "选择一条明细，可在这里查看完整说明。";
-        _visibleRows = _controller.BuildIssueRows(filter);
-        foreach (var row in _visibleRows)
+        foreach (var row in rows)
         {
-            var index = issueGrid.Rows.Add(row.SeverityText, row.CategoryText, row.DeviceName, row.FileName, row.Message, row.Actual, row.Path);
-            issueGrid.Rows[index].Cells[0].Style.ForeColor = ColorTranslator.FromHtml(row.ColorHex);
-            issueGrid.Rows[index].Cells[0].Style.Font = new Font(issueGrid.Font, FontStyle.Bold);
-            foreach (DataGridViewCell cell in issueGrid.Rows[index].Cells)
-                cell.ToolTipText = cell.Value?.ToString() ?? string.Empty;
+            var index = issueGrid.Rows.Add("打开位置  ▼", row.SeverityText, row.CategoryText, row.DeviceName, row.FileName, row.Message, row.Actual, row.Path);
+            issueGrid.Rows[index].Tag = row;
+            foreach (DataGridViewCell cell in issueGrid.Rows[index].Cells) cell.ToolTipText = cell.Value?.ToString() ?? string.Empty;
         }
+        issueGrid.Visible = rows.Count > 0;
+        emptyMessageLabel.Text = levelMessageLabel.Text;
+        emptyMessageLabel.Visible = rows.Count == 0;
     }
 
-    private void IssueGrid_SelectionChanged(object? sender, EventArgs e)
+    private void IssueGrid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
     {
-        var index = issueGrid.CurrentRow?.Index ?? -1;
-        detailTextBox.Text = index >= 0 && index < _visibleRows.Count
-            ? _visibleRows[index].DetailText
-            : "选择一条明细，可在这里查看完整说明。";
-        copyButton.Enabled = index >= 0 && index < _visibleRows.Count;
-        openLocationButton.Enabled = copyButton.Enabled;
+        if (e.RowIndex < 0 || issueGrid.Columns[e.ColumnIndex].Name != "Operation") return;
+        _operationRowIndex = e.RowIndex;
+        var rectangle = issueGrid.GetCellDisplayRectangle(e.ColumnIndex, e.RowIndex, true);
+        operationMenu.Show(issueGrid, new Point(rectangle.Left, rectangle.Bottom));
     }
 
-    private void CopyButton_Click(object? sender, EventArgs e)
+    private IssueListRow? OperationRow() => _operationRowIndex >= 0 && _operationRowIndex < _visibleRows.Count ? _visibleRows[_operationRowIndex] : null;
+    private void OperationOpen_Click(object? sender, EventArgs e) { var row = OperationRow(); if (row is not null) OpenLocation(row.Path); }
+    private void OperationDetails_Click(object? sender, EventArgs e)
     {
-        if (!string.IsNullOrWhiteSpace(detailTextBox.Text))
-        {
-            Clipboard.SetText(detailTextBox.Text);
-            statusLabel.Text = "已复制所选明细";
-        }
+        var row = OperationRow(); if (row is null) return;
+        using var dialog = new Form { Text = "错误详情", StartPosition = FormStartPosition.CenterParent, Size = new Size(760, 520), MinimumSize = new Size(560, 380), Font = Font };
+        dialog.Controls.Add(new TextBox { Text = row.DetailText, Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, WordWrap = false, ScrollBars = ScrollBars.Both, BackColor = Color.White });
+        dialog.ShowDialog(this);
     }
+    private void OperationCopy_Click(object? sender, EventArgs e) { var row = OperationRow(); if (row is null) return; Clipboard.SetText(row.DetailText); statusLabel.Text = "已复制所选错误信息"; }
 
-    private void OpenLocationButton_Click(object? sender, EventArgs e)
+    private void OpenLocation(string path)
     {
-        var index = issueGrid.CurrentRow?.Index ?? -1;
-        if (index < 0 || index >= _visibleRows.Count) return;
-        var target = OpenLocationResolver.Resolve(_visibleRows[index].Path);
-        if (target is null)
-        {
-            MessageBox.Show(this, "没有找到可打开的位置。请确认原检查文件夹仍然存在。", "无法打开位置",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
+        var target = OpenLocationResolver.Resolve(path);
+        if (target is null) { MessageBox.Show(this, "没有找到可打开的位置。请确认原检查文件夹仍然存在。", "无法打开位置", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         try
         {
-            var startInfo = new ProcessStartInfo("explorer.exe") { UseShellExecute = false };
-            startInfo.ArgumentList.Add(target.SelectFile ? $"/select,{target.Path}" : target.Path);
-            Process.Start(startInfo);
+            var launch = WindowsExplorerLaunch.Build(target);
+            var info = new ProcessStartInfo(launch.FileName, launch.Arguments) { UseShellExecute = true };
+            Process.Start(info);
         }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this, exception.Message, "无法打开位置", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        catch (Exception exception) { MessageBox.Show(this, exception.Message, "无法打开位置", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
-    private async void ExportCurrentButton_Click(object? sender, EventArgs e)
-    {
-        if (_controller.CurrentResult is null) return;
-        await SaveReportAsync("导出当前文件夹报告", $"IDC日志检查报告_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
-            ChineseTextReportWriter.Write(_controller.CurrentResult));
-    }
-
-    private async void ExportAllButton_Click(object? sender, EventArgs e)
+    private async void ExportButton_Click(object? sender, EventArgs e)
     {
         if (_controller.BatchResult is null) return;
-        await SaveReportAsync("导出全部检查结果", $"IDC日志批量检查报告_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
-            ChineseBatchReportWriter.Write(_controller.BatchResult));
-    }
-
-    private async Task SaveReportAsync(string title, string name, string content)
-    {
-        using var dialog = new SaveFileDialog
-        {
-            Title = title, Filter = "文本文件 (*.txt)|*.txt", FileName = name,
-            AddExtension = true, DefaultExt = "txt",
-        };
+        using var dialog = new SaveFileDialog { Title = "导出检查数据", Filter = "文本文件 (*.txt)|*.txt", FileName = $"设备检查数据_{DateTime.Now:yyyyMMdd_HHmmss}.txt", AddExtension = true, DefaultExt = "txt" };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        try
-        {
-            await File.WriteAllTextAsync(dialog.FileName, content, new System.Text.UTF8Encoding(false));
-            MessageBox.Show(this, $"报告已保存到：\r\n{dialog.FileName}", "报告已导出",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(this, exception.Message, "报告导出失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        try { await File.WriteAllTextAsync(dialog.FileName, ChineseBatchReportWriter.Write(_controller.BatchResult), new System.Text.UTF8Encoding(false)); MessageBox.Show(this, $"数据已保存到：\r\n{dialog.FileName}", "导出完成", MessageBoxButtons.OK, MessageBoxIcon.Information); }
+        catch (Exception exception) { MessageBox.Show(this, exception.Message, "导出失败", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
-    private void ApplyIdleState()
+    private void RenderSelectedFolders()
     {
-        selectionSummaryLabel.Text = "尚未选择文件夹";
-        inputNoticeLabel.Text = "可点击选择多个文件夹，也可将多个文件夹拖入窗口";
-        totalValueLabel.Text = cleanValueLabel.Text = batchIndeterminateValueLabel.Text = batchWarningValueLabel.Text = failedValueLabel.Text = "0";
-        ApplyCurrentFolder(null);
-        statusLabel.Text = "请选择需要检查的日志文件夹";
-        startButton.Enabled = false;
-        exportAllButton.Enabled = false;
-        progressBar.Value = 0;
+        selectedFolderGrid.Rows.Clear();
+        foreach (var path in _controller.SelectedPaths) { var index = selectedFolderGrid.Rows.Add(Path.GetFileName(path), "移除", path); selectedFolderGrid.Rows[index].Tag = path; }
+        selectedCountLabel.Text = $"共选择 {_controller.SelectedPaths.Count} 个文件夹";
     }
 
-    private void SetBusy(bool busy)
+    private void ResetScanResult()
     {
-        chooseFolderButton.Enabled = !busy;
-        startButton.Enabled = !busy && _controller.CanStart;
-        allButton.Enabled = !busy;
-        errorsButton.Enabled = !busy;
-        indeterminateButton.Enabled = !busy;
-        warningsButton.Enabled = !busy;
-        AllowDrop = !busy;
-        UseWaitCursor = busy;
-        if (busy)
-        {
-            exportAllButton.Enabled = false;
-            exportCurrentButton.Enabled = false;
-        }
-        else
-        {
-            exportAllButton.Enabled = _controller.CanExportAll;
-            exportCurrentButton.Enabled = _controller.CanExportCurrent;
-        }
+        levelOneButton.Text = "一级设备目录检查\r\n—"; levelTwoButton.Text = "二级命令数目检查\r\n—"; levelThreeButton.Text = "三级执行结果检查\r\n—";
+        detailTitleLabel.Text = "三级执行结果检查 · 结果明细"; levelMessageLabel.Text = "完成检查后显示结果。"; ShowRows([]);
+        statusLabel.Text = "已选择文件夹，点击“开始检查”开始"; progressBar.Value = 0; startButton.Enabled = true; exportButton.Enabled = false;
     }
+
+    private void ShowHome() { homePanel.Visible = true; homePanel.BringToFront(); resultsPanel.Visible = false; }
+    private void ShowResults() { homePanel.Visible = false; resultsPanel.Visible = true; resultsPanel.BringToFront(); }
+    private void SetBusy(bool busy) { homeChooseButton.Enabled = addFolderButton.Enabled = clearButton.Enabled = !busy; startButton.Enabled = !busy && _controller.CanStart; exportButton.Enabled = !busy && _controller.CanExportAll; progressBar.Visible = busy; AllowDrop = !busy; UseWaitCursor = busy; }
 }

@@ -38,6 +38,39 @@ public sealed class FileStructureTests
     }
 
     [Fact]
+    public async Task ExtraTxtFileIsStillCheckedForExecutionErrors()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("Device-A/one.txt", "prompt\nnormal output");
+        fixture.WriteFile("Device-A/two.txt", "prompt\nnormal output");
+        fixture.WriteFile("Device-A/extra.txt", "prompt\n% Unrecognized command found at '^' position.");
+        var scanner = CreateScanner();
+
+        var result = await scanner.ScanAsync(fixture.Path);
+
+        Assert.Contains(result.Issues, issue => issue.Code == IssueCode.ExtraTxtFile);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == IssueCode.CommandUnrecognized &&
+            Path.GetFileName(issue.Path) == "extra.txt");
+    }
+
+    [Fact]
+    public async Task CaseMismatchedTxtFileIsStillCheckedForExecutionErrors()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("Device-A/one.txt", "prompt\nnormal output");
+        fixture.WriteFile("Device-A/TWO.txt", "prompt\n% Unrecognized command found at '^' position.");
+        var scanner = CreateScanner();
+
+        var result = await scanner.ScanAsync(fixture.Path);
+
+        Assert.Contains(result.Issues, issue => issue.Code == IssueCode.TxtFileCaseMismatch);
+        Assert.Contains(result.Issues, issue =>
+            issue.Code == IssueCode.CommandUnrecognized &&
+            Path.GetFileName(issue.Path) == "TWO.txt");
+    }
+
+    [Fact]
     public async Task NonTxtFilesAndNestedDirectoriesAreWarnings()
     {
         using var fixture = new TestDirectory();

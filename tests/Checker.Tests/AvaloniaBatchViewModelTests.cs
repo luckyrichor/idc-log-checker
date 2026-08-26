@@ -10,6 +10,29 @@ namespace IDCLogChecker.Tests;
 public sealed class AvaloniaBatchViewModelTests
 {
     [Fact]
+    public void AddingFoldersAppendsDeduplicatesAndClearReturnsToHomeState()
+    {
+        using var fixture = new TestDirectory();
+        var first = fixture.CreateDirectory("first");
+        var second = fixture.CreateDirectory("second");
+        var viewModel = ViewModel();
+
+        Assert.True(viewModel.ReplaceSelection([first]));
+        Assert.True(viewModel.AddSelection([first, second]));
+        Assert.Equal([first, second], viewModel.SelectedPaths);
+        Assert.Equal(2, viewModel.SelectedFolders.Count);
+
+        Assert.True(viewModel.RemoveSelection(first));
+        Assert.Equal([second], viewModel.SelectedPaths);
+
+        viewModel.ClearSelection();
+        Assert.Empty(viewModel.SelectedPaths);
+        Assert.Empty(viewModel.SelectedFolders);
+        Assert.False(viewModel.CanStart);
+        Assert.Equal("请选择需要检查的文件夹", viewModel.StatusText);
+    }
+
+    [Fact]
     public void ReplacesSelectionWithValidFoldersAndPreservesItForWhollyInvalidInput()
     {
         using var fixture = new TestDirectory();
@@ -23,6 +46,7 @@ public sealed class AvaloniaBatchViewModelTests
         Assert.True(accepted);
         Assert.Equal(2, viewModel.SelectedPaths.Count);
         Assert.Equal("已选择 2 个文件夹", viewModel.SelectionSummaryText);
+        Assert.Equal("已选择文件夹，点击“开始检查”开始", viewModel.StatusText);
         Assert.Contains("1 个项目不是有效文件夹", viewModel.InputNoticeText);
         Assert.Contains("1 个重复文件夹", viewModel.InputNoticeText);
 

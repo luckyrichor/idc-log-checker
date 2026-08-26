@@ -2,6 +2,19 @@
     x:Class="IDCLogChecker.Avalonia.App"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="DataGridRowHoveredBackgroundColor" Color="#F1F7FA" />
+    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="#DCEFF7" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#D4EAF4" />
+    <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="#DCEFF7" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="#D4EAF4" />
+    <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
+    <x:Double x:Key="DataGridRowSelectedBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedHoveredBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedUnfocusedBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundOpacity">1</x:Double>
+  </Application.Resources>
   <Application.Styles>
     <FluentTheme DensityStyle="Compact" />
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
@@ -9,6 +22,10 @@
       <Setter Property="FontFamily" Value="Inter, Microsoft YaHei UI, PingFang SC, sans-serif" />
       <Setter Property="FontSize" Value="14" />
       <Setter Property="Background" Value="#F4F7FA" />
+    </Style>
+    <Style Selector="SelectableTextBlock">
+      <Setter Property="SelectionBrush" Value="#CFEAF6" />
+      <Setter Property="SelectionForegroundBrush" Value="#193149" />
     </Style>
     <Style Selector="Button.primary">
       <Setter Property="Background" Value="#1F8A70" />
@@ -29,6 +46,62 @@
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="9" />
       <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="ListBox#SelectedFolderList">
+      <Setter Property="ScrollViewer.AllowAutoHide" Value="False" />
+    </Style>
+    <Style Selector="DataGrid#IssueList">
+      <Setter Property="ScrollViewer.AllowAutoHide" Value="False" />
+    </Style>
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#F1F7FA" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#DCEFF7" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#D4EAF4" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridRow:selected:focus /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#DCEFF7" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridRow:selected:pointerover:focus /template/ Rectangle#BackgroundRectangle">
+      <Setter Property="Fill" Value="#D4EAF4" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="DataGridCell /template/ Grid#FocusVisual">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="DataGrid#IssueList DataGridCell:focus /template/ Grid#FocusVisual">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="ScrollBar:horizontal">
+      <Setter Property="AllowAutoHide" Value="False" />
+      <Setter Property="Height" Value="18" />
+      <Setter Property="MinHeight" Value="18" />
+      <Setter Property="Background" Value="#E3EAF0" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="ScrollBar:vertical">
+      <Setter Property="AllowAutoHide" Value="False" />
+      <Setter Property="Width" Value="18" />
+      <Setter Property="MinWidth" Value="18" />
+      <Setter Property="Background" Value="#E3EAF0" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="ScrollBar /template/ Rectangle#TrackRect">
+      <Setter Property="Fill" Value="#E3EAF0" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+      <Setter Property="Background" Value="#6F8799" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="RenderTransform" Value="none" />
     </Style>
   </Application.Styles>
 </Application>

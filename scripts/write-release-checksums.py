@@ -14,7 +14,7 @@ def sha256(path):
 
 release_dir = Path(sys.argv[1]).resolve()
 names = ["IDC日志检查工具_Avalonia.exe", "IDC日志检查工具_WinForms.exe"]
-lines = ["IDC 日志检查工具发布文件 SHA-256", "================================", ""]
+lines = ["设备检查工具发布文件 SHA-256", "==============================", ""]
 for name in names:
     path = release_dir / name
     lines.extend([name, sha256(path), ""])

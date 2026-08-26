@@ -20,8 +20,13 @@ public static class IssueListAdapter
         IssueFilter filter)
     {
         ArgumentNullException.ThrowIfNull(presentation);
+        return BuildRows(presentation.Filter(filter));
+    }
 
-        return presentation.Filter(filter).Select(row => new IssueListRow(
+    public static IReadOnlyList<IssueListRow> BuildRows(IEnumerable<IssueRow> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return source.Select(row => new IssueListRow(
             row.SeverityText,
             row.CategoryText,
             row.DeviceName,

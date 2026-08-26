@@ -2,6 +2,12 @@ using IDCLogChecker.Core.Presentation;
 
 namespace IDCLogChecker.Avalonia;
 
+public sealed class SelectedFolderViewModel(string path)
+{
+    public string Path { get; } = path;
+    public string FolderName => System.IO.Path.GetFileName(Path);
+}
+
 public sealed class FolderResultViewModel(FolderResultPresentation presentation)
 {
     public FolderResultPresentation Presentation { get; } = presentation;

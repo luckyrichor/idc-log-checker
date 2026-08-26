@@ -11,7 +11,24 @@ public enum IssueFilter
     Warnings,
 }
 
+public enum InspectionLevel
+{
+    DeviceDirectories,
+    CommandFiles,
+    ExecutionResults,
+}
+
+public sealed record LevelResultSummary(
+    InspectionLevel Level,
+    string Title,
+    int ErrorCount,
+    string CardText,
+    string DetailMessage);
+
+public sealed record IssueCategorySummary(string CategoryText, int Count);
+
 public sealed record IssueRow(
+    IssueCode Code,
     IssueSeverity Severity,
     string SeverityText,
     string CategoryText,
@@ -76,6 +93,7 @@ public sealed class ResultPresentation
         };
 
         var rows = result.Issues.Select(issue => new IssueRow(
+            issue.Code,
             issue.Severity,
             SeverityText(issue.Severity),
             ChineseTextReportWriter.CodeText(issue.Code),
@@ -97,6 +115,90 @@ public sealed class ResultPresentation
         IssueFilter.Indeterminate => AllRows.Where(row => row.Severity == IssueSeverity.Indeterminate).ToArray(),
         IssueFilter.Warnings => AllRows.Where(row => row.Severity == IssueSeverity.Warning).ToArray(),
         _ => AllRows,
+    };
+
+    public IReadOnlyList<IssueRow> ErrorsFor(InspectionLevel level)
+    {
+        var errors = AllRows.Where(row => row.Severity == IssueSeverity.Error);
+        if (level == InspectionLevel.CommandFiles)
+        {
+            return errors
+                .Where(row => LevelOf(row.Code) == level || BlocksCommandFileCheck(row.Code))
+                .Select(row => BlocksCommandFileCheck(row.Code) ? AsCommandFileBlocker(row) : row)
+                .ToArray();
+        }
+
+        return errors.Where(row => LevelOf(row.Code) == level).ToArray();
+    }
+
+    public IReadOnlyList<IssueCategorySummary> ErrorCategoriesFor(InspectionLevel level)
+    {
+        return ErrorsFor(level)
+            .GroupBy(row => row.CategoryText, StringComparer.Ordinal)
+            .Select(group => new IssueCategorySummary(group.Key, group.Count()))
+            .OrderByDescending(item => item.Count)
+            .ThenBy(item => item.CategoryText, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    public LevelResultSummary LevelSummary(InspectionLevel level)
+    {
+        var count = ErrorsFor(level).Count;
+        var title = level switch
+        {
+            InspectionLevel.DeviceDirectories => "一级设备目录检查",
+            InspectionLevel.CommandFiles => "二级命令数目检查",
+            _ => "三级执行结果检查",
+        };
+        var card = level == InspectionLevel.ExecutionResults || count > 0
+            ? $"{count} 个错误"
+            : "未发现错误";
+        var message = level switch
+        {
+            InspectionLevel.ExecutionResults when count > 0 => "其他内容暂未发现明显异常，可人工核查。",
+            InspectionLevel.ExecutionResults => "未检测到明确异常，具体内容仍需人工确认。",
+            _ when count == 0 => "未发现错误",
+            _ => $"发现 {count} 个错误，请查看下方结果明细。",
+        };
+        return new LevelResultSummary(level, title, count, card, message);
+    }
+
+    private static InspectionLevel LevelOf(IssueCode code) => code switch
+    {
+        IssueCode.RootNotFound or IssueCode.RootUnreadable or
+        IssueCode.MissingDirectory or IssueCode.ExtraDirectory or IssueCode.DirectoryCaseMismatch
+            => InspectionLevel.DeviceDirectories,
+        IssueCode.MissingTxtFile or IssueCode.ExtraTxtFile or IssueCode.TxtFileCaseMismatch
+            => InspectionLevel.CommandFiles,
+        _ => InspectionLevel.ExecutionResults,
+    };
+
+    private static bool BlocksCommandFileCheck(IssueCode code) => code is
+        IssueCode.RootNotFound or IssueCode.RootUnreadable or
+        IssueCode.MissingDirectory or IssueCode.ExtraDirectory or IssueCode.DirectoryCaseMismatch;
+
+    private static IssueRow AsCommandFileBlocker(IssueRow row) => row.Code switch
+    {
+        IssueCode.MissingDirectory => row with
+        {
+            CategoryText = "未找到对应设备目录",
+            Message = $"未找到名称完全一致的设备目录“{row.Expected}”，无法进行二级命令数目检查。",
+        },
+        IssueCode.DirectoryCaseMismatch => row with
+        {
+            CategoryText = "未找到对应设备目录",
+            Message = $"未找到名称完全一致的设备目录“{row.Expected}”；实际目录“{row.Actual}”大小写不一致，不允许继续进行二级检查。",
+        },
+        IssueCode.ExtraDirectory => row with
+        {
+            CategoryText = "设备目录无对应基准",
+            Message = $"设备目录“{row.Actual}”不在基准中，无法进行二级命令数目检查。",
+        },
+        _ => row with
+        {
+            CategoryText = "二级检查无法完成",
+            Message = "受一级设备目录错误影响，无法进行二级命令数目检查。",
+        },
     };
 
     private static string SeverityText(IssueSeverity severity) => severity switch

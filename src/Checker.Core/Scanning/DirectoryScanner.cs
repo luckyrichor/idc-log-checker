@@ -190,21 +190,16 @@ public sealed class DirectoryScanner
                     Actual: extra));
             }
 
-            var txtByExactName = txtFiles.ToDictionary(file => file.Name, StringComparer.Ordinal);
-            foreach (var expectedFileName in device.TxtFiles)
+            foreach (var file in txtFiles.OrderBy(item => item.Name, StringComparer.Ordinal))
             {
-                if (!txtByExactName.TryGetValue(expectedFileName, out var file))
-                {
-                    continue;
-                }
-
                 cancellationToken.ThrowIfCancellationRequested();
                 checkedTxtCount++;
+                var fileName = file.Name;
                 ContentAnalysisResult analysis;
                 try
                 {
                     analysis = _contentAnalyzer.AnalyzeAsync(
-                            device.Name, expectedFileName, file.FullName, cancellationToken)
+                            device.Name, fileName, file.FullName, cancellationToken)
                         .GetAwaiter()
                         .GetResult();
                 }
@@ -220,7 +215,7 @@ public sealed class DirectoryScanner
                     issues.Add(new ScanIssue(
                         IssueSeverity.Error,
                         IssueCode.UnreadableTxtFile,
-                        $"无法读取 TXT 文件“{expectedFileName}”：{exception.Message}",
+                        $"无法读取 TXT 文件“{fileName}”：{exception.Message}",
                         device.Name,
                         file.FullName,
                         Expected: "文件可读取",
@@ -233,7 +228,7 @@ public sealed class DirectoryScanner
                     issues.Add(new ScanIssue(
                         IssueSeverity.Error,
                         IssueCode.EmptyTxtFile,
-                        $"TXT 文件“{expectedFileName}”没有有效内容（0 字节、仅 BOM 或仅空白）。",
+                        $"TXT 文件“{fileName}”没有有效内容（0 字节、仅 BOM 或仅空白）。",
                         device.Name,
                         file.FullName,
                         Expected: "至少包含一行有效内容",
@@ -246,7 +241,7 @@ public sealed class DirectoryScanner
                     issues.Add(new ScanIssue(
                         IssueSeverity.Warning,
                         IssueCode.OneLineTxtFile,
-                        $"TXT 文件“{expectedFileName}”只有一行，请人工确认命令是否确实没有返回正文。",
+                        $"TXT 文件“{fileName}”只有一行，请人工确认命令是否确实没有返回正文。",
                         device.Name,
                         file.FullName,
                         Expected: "通常应包含两行或更多内容",

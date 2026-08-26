@@ -9,11 +9,46 @@ namespace IDCLogChecker.Tests;
 public sealed class AvaloniaViewModelTests
 {
     [Fact]
+    public async Task ThirdLevelCardCarriesTheManualReviewNoteUsedByTheApprovedLayout()
+    {
+        using var fixture = new TestDirectory();
+        fixture.WriteFile("Device-A/one.txt", "a\nb");
+        var viewModel = new MainWindowViewModel(new DirectoryScanner([
+            new BaselineDevice("Device-A", ["one.txt"]),
+        ])) { SelectedPath = fixture.Path };
+
+        await viewModel.RunBatchScanAsync();
+
+        Assert.Equal("未检测到明确异常，具体内容仍需人工确认。", viewModel.LevelThreeNote);
+    }
+
+    [Fact]
+    public async Task SelectingInspectionLevelShowsOnlyErrorsForThatLevel()
+    {
+        using var fixture = new TestDirectory();
+        fixture.CreateDirectory("logs/Extra-Device");
+        var viewModel = new MainWindowViewModel(new DirectoryScanner([]));
+        viewModel.ReplaceSelection([Path.Combine(fixture.Path, "logs")]);
+
+        await viewModel.RunBatchScanAsync();
+        viewModel.SelectLevel(InspectionLevel.DeviceDirectories);
+
+        Assert.Equal("一级设备目录检查", viewModel.SelectedLevelTitle);
+        Assert.Equal("1 个错误", viewModel.LevelOneText);
+        Assert.Single(viewModel.VisibleIssues);
+        Assert.All(viewModel.VisibleIssues, row => Assert.Equal(IssueSeverity.Error, row.Severity));
+
+        viewModel.SelectLevel(InspectionLevel.ExecutionResults);
+        Assert.Empty(viewModel.VisibleIssues);
+        Assert.Equal("未检测到明确异常，具体内容仍需人工确认。", viewModel.LevelDetailMessage);
+    }
+
+    [Fact]
     public void InitialStateDirectsUserToChooseAFolder()
     {
         var viewModel = new MainWindowViewModel(new DirectoryScanner([]));
 
-        Assert.Equal("请选择需要检查的日志文件夹", viewModel.StatusText);
+        Assert.Equal("请选择需要检查的文件夹", viewModel.StatusText);
         Assert.False(viewModel.IsBusy);
         Assert.False(viewModel.HasResult);
         Assert.False(viewModel.CanExport);

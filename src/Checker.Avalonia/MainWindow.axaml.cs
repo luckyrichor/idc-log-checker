@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _viewModel;
+        UpdateLevelButtons(InspectionLevel.ExecutionResults);
     }
 
     private async void OnChooseFolderClick(object? sender, RoutedEventArgs e)
@@ -29,7 +30,18 @@ public sealed partial class MainWindow : Window
             Title = "选择一个或多个巡检结果文件夹",
             AllowMultiple = true,
         });
-        if (folders.Count > 0 && !AcceptSelection(folders.Select(folder => folder.Path.LocalPath)))
+        if (folders.Count > 0 && !AcceptSelection(folders.Select(folder => folder.Path.LocalPath), false))
+            await ShowMessageAsync("没有有效文件夹", _viewModel.InputNoticeText);
+    }
+
+    private async void OnAddFolderClick(object? sender, RoutedEventArgs e)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "添加一个或多个检查文件夹",
+            AllowMultiple = true,
+        });
+        if (folders.Count > 0 && !AcceptSelection(folders.Select(folder => folder.Path.LocalPath), true))
             await ShowMessageAsync("没有有效文件夹", _viewModel.InputNoticeText);
     }
 
@@ -38,6 +50,9 @@ public sealed partial class MainWindow : Window
         try
         {
             await _viewModel.RunBatchScanAsync();
+            UpdateLevelButtons(InspectionLevel.ExecutionResults);
+            if (_viewModel.SelectedFolder is not null)
+                SelectedFolderList.SelectedItem = _viewModel.SelectedFolders.FirstOrDefault(folder => folder.Path == _viewModel.SelectedFolder.Path);
         }
         catch (Exception exception)
         {
@@ -60,7 +75,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (!AcceptSelection(items.Select(item => item.Path.LocalPath)))
+        if (!AcceptSelection(items.Select(item => item.Path.LocalPath), _viewModel.HasSelection))
             await ShowMessageAsync("没有有效文件夹", _viewModel.InputNoticeText);
     }
 
@@ -68,55 +83,126 @@ public sealed partial class MainWindow : Window
     {
         var acceptsFiles = e.DataTransfer.Formats.Contains(DataFormat.File);
         e.DragEffects = acceptsFiles ? DragDropEffects.Copy : DragDropEffects.None;
-        DropZone.BorderBrush = new SolidColorBrush(Color.Parse(acceptsFiles ? "#2C90C7" : "#C0392B"));
-        DropZone.Background = new SolidColorBrush(Color.Parse(acceptsFiles ? "#EAF6FC" : "#FDEDEC"));
+        if (_viewModel.IsHome)
+        {
+            HomeDropZone.BorderBrush = new SolidColorBrush(Color.Parse(acceptsFiles ? "#2C90C7" : "#C0392B"));
+            HomeDropZone.Background = new SolidColorBrush(Color.Parse(acceptsFiles ? "#EAF6FC" : "#FDEDEC"));
+        }
     }
 
     private void ResetDropZone()
     {
-        DropZone.BorderBrush = new SolidColorBrush(Color.Parse("#D7E0E8"));
-        DropZone.Background = Brushes.White;
+        HomeDropZone.BorderBrush = new SolidColorBrush(Color.Parse("#91A6B8"));
+        HomeDropZone.Background = new SolidColorBrush(Color.Parse("#F7FAFC"));
     }
 
-    private bool AcceptSelection(IEnumerable<string?> paths)
+    private bool AcceptSelection(IEnumerable<string?> paths, bool append)
     {
-        var accepted = _viewModel.ReplaceSelection(paths);
+        var accepted = append ? _viewModel.AddSelection(paths) : _viewModel.ReplaceSelection(paths);
         _selectedIssue = null;
-        IssueDetail.Text = "选择一条明细，可在这里查看完整说明。";
         return accepted;
     }
 
-    private void OnFolderSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void OnSelectedPathChanged(object? sender, SelectionChangedEventArgs e)
     {
         _selectedIssue = null;
-        IssueDetail.Text = "选择一条明细，可在这里查看完整说明。";
+        if (SelectedFolderList.SelectedItem is not SelectedFolderViewModel selected) return;
+        _viewModel.SelectedFolder = _viewModel.FolderResults.FirstOrDefault(folder => folder.Path == selected.Path);
     }
 
-    private void OnShowAllClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.All);
-    private void OnShowErrorsClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Errors);
-    private void OnShowIndeterminateClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Indeterminate);
-    private void OnShowWarningsClick(object? sender, RoutedEventArgs e) => _viewModel.ApplyFilter(IssueFilter.Warnings);
+    private void OnLevelOneClick(object? sender, RoutedEventArgs e) => SelectLevel(InspectionLevel.DeviceDirectories);
+    private void OnLevelTwoClick(object? sender, RoutedEventArgs e) => SelectLevel(InspectionLevel.CommandFiles);
+    private void OnLevelThreeClick(object? sender, RoutedEventArgs e) => SelectLevel(InspectionLevel.ExecutionResults);
+
+    private void OnCategoryFilterClick(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is string category)
+            _viewModel.ApplyCategoryFilter(category);
+    }
+
+    private void SelectLevel(InspectionLevel level)
+    {
+        _viewModel.SelectLevel(level);
+        UpdateLevelButtons(level);
+    }
+
+    private void UpdateLevelButtons(InspectionLevel selected)
+    {
+        var buttons = new[]
+        {
+            (LevelOneButton, InspectionLevel.DeviceDirectories),
+            (LevelTwoButton, InspectionLevel.CommandFiles),
+            (LevelThreeButton, InspectionLevel.ExecutionResults),
+        };
+        foreach (var (button, level) in buttons)
+        {
+            var active = level == selected;
+            button.BorderBrush = new SolidColorBrush(Color.Parse(active ? "#19735F" : "#CAD6DE"));
+            button.BorderThickness = new global::Avalonia.Thickness(active ? 2 : 1);
+            button.Background = new SolidColorBrush(Color.Parse(active ? "#F7FCFA" : "#FFFFFF"));
+        }
+    }
+
+    private void OnClearClick(object? sender, RoutedEventArgs e)
+    {
+        _selectedIssue = null;
+        _viewModel.ClearSelection();
+    }
+
+    private void OnRemoveFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: SelectedFolderViewModel folder })
+            _viewModel.RemoveSelection(folder.Path);
+    }
+
+    private void OnSelectedFolderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control
+            || e.GetCurrentPoint(control).Properties.PointerUpdateKind != PointerUpdateKind.RightButtonPressed
+            || control.ContextMenu is not { } menu) return;
+        menu.Open(control);
+        e.Handled = true;
+    }
+
+    private async void OnCopyFolderNameClick(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is SelectedFolderViewModel folder)
+            await CopyTextAsync(folder.FolderName);
+    }
+
+    private async void OnCopyFolderPathClick(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.Tag is SelectedFolderViewModel folder)
+            await CopyTextAsync(folder.Path);
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        var clipboard = GetTopLevel(this)?.Clipboard;
+        if (clipboard is not null) await clipboard.SetTextAsync(text);
+    }
 
     private void OnIssueSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         _selectedIssue = IssueList.SelectedItem as IssueRow;
-        IssueDetail.Text = _selectedIssue?.DetailText ?? "选择一条明细，可在这里查看完整说明。";
     }
 
-    private async void OnCopyClick(object? sender, RoutedEventArgs e)
+    private async void OnCopyIssueMenuTextClick(object? sender, RoutedEventArgs e)
     {
-        if (_selectedIssue is null)
-        {
-            await ShowMessageAsync("尚未选择明细", "请先在检查明细中选择一条记录。");
-            return;
-        }
-
-        var clipboard = GetTopLevel(this)?.Clipboard;
-        if (clipboard is not null) await clipboard.SetTextAsync(_selectedIssue.DetailText);
+        if ((sender as MenuItem)?.Tag is string text && !string.IsNullOrEmpty(text))
+            await CopyTextAsync(text);
     }
 
-    private async void OnOpenLocationClick(object? sender, RoutedEventArgs e)
+    private async void OnRowCopyClick(object? sender, RoutedEventArgs e)
     {
+        _selectedIssue = (sender as Control)?.DataContext as IssueRow ?? _selectedIssue;
+        if (_selectedIssue is null) return;
+        await CopyTextAsync(_selectedIssue.DetailText);
+    }
+
+    private async void OnRowOpenLocationClick(object? sender, RoutedEventArgs e)
+    {
+        _selectedIssue = (sender as Control)?.DataContext as IssueRow ?? _selectedIssue;
         var target = OpenLocationResolver.Resolve(_selectedIssue?.Path);
         if (target is null)
         {
@@ -126,17 +212,24 @@ public sealed partial class MainWindow : Window
 
         try
         {
-            var startInfo = new ProcessStartInfo(OperatingSystem.IsWindows() ? "explorer.exe" : "open")
+            ProcessStartInfo startInfo;
+            if (OperatingSystem.IsWindows())
             {
-                UseShellExecute = false,
-            };
-            if (OperatingSystem.IsWindows() && target.SelectFile)
-            {
-                startInfo.ArgumentList.Add($"/select,{target.Path}");
+                var launch = WindowsExplorerLaunch.Build(target);
+                // explorer.exe parses its own command line and does not reliably
+                // preserve ArgumentList quoting for paths containing spaces.
+                startInfo = new ProcessStartInfo(launch.FileName, launch.Arguments)
+                {
+                    UseShellExecute = true,
+                };
             }
             else
             {
-                if (!OperatingSystem.IsWindows() && target.SelectFile) startInfo.ArgumentList.Add("-R");
+                startInfo = new ProcessStartInfo("open")
+                {
+                    UseShellExecute = false,
+                };
+                if (target.SelectFile) startInfo.ArgumentList.Add("-R");
                 startInfo.ArgumentList.Add(target.Path);
             }
             Process.Start(startInfo);
@@ -145,6 +238,35 @@ public sealed partial class MainWindow : Window
         {
             await ShowMessageAsync("无法打开位置", exception.Message);
         }
+    }
+
+    private async void OnRowDetailsClick(object? sender, RoutedEventArgs e)
+    {
+        _selectedIssue = (sender as Control)?.DataContext as IssueRow ?? _selectedIssue;
+        if (_selectedIssue is null) return;
+        await ShowDetailsAsync(_selectedIssue.DetailText);
+    }
+
+    private async Task ShowDetailsAsync(string details)
+    {
+        var closeButton = new Button { Content = "关闭", HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Right, Padding = new global::Avalonia.Thickness(20, 8) };
+        var dialog = new Window
+        {
+            Title = "错误详情", Width = 720, Height = 480, MinWidth = 520, MinHeight = 340,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Grid
+            {
+                Margin = new global::Avalonia.Thickness(20), RowDefinitions = new RowDefinitions("*,Auto"),
+                Children =
+                {
+                    new ScrollViewer { HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, Content = new SelectableTextBlock { Text = details, TextWrapping = TextWrapping.NoWrap } },
+                    closeButton,
+                },
+            },
+        };
+        Grid.SetRow(closeButton, 1);
+        closeButton.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
     }
 
     private async void OnExportCurrentClick(object? sender, RoutedEventArgs e)
@@ -160,8 +282,8 @@ public sealed partial class MainWindow : Window
     {
         if (_viewModel.CurrentBatchResult is null) return;
         await SaveReportAsync(
-            "导出全部检查结果",
-            $"IDC日志批量检查报告_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
+            "导出检查数据",
+            $"设备检查数据_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
             ChineseBatchReportWriter.Write(_viewModel.CurrentBatchResult));
     }
 
